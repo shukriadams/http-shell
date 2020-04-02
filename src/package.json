@@ -1,5 +1,6 @@
 {
     "name": "test",
+    "version": "0.0.1",
     "license": "MIT",
     "description": "test",
     "devDependencies": {},
@@ -13,6 +14,7 @@
         "minimist": "1.2.5",
         "cuid": "2.1.8",
         "url-join": "4.0.1",
+        "jsonfile": "6.0.1",
         "express": "4.16.3",
         "body-parser": "1.18.3",
         "timebelt": "https://github.com/shukriadams/timebelt.git#0.1.4",
@@ -21,6 +23,7 @@
     },
     "pkg": {
         "assets": [
+            "./package.json",
             "./node_modules/fs-extra/**",
             "./node_modules/js-yaml/**",
             "./node_modules/minimist/**",
@@ -29,6 +32,7 @@
             "./node_modules/express/**",
             "./node_modules/body-parser/**",
             "./node_modules/timebelt/**",
+            "./node_modules/jsonfile/**",
             "./node_modules/madscience-httputils/**",
             "./node_modules/madscience-node-exec/**"
         ]

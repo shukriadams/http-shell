@@ -1,5 +1,5 @@
 /client/node_modules
-/docker/data
+/build/data
 /node_modules
 /src/node_modules
 /client/node_modules
@@ -10,4 +10,4 @@ coordinator.yml
 src/client.yml
 /client/settings.yml
 /src/build/
-/docker/build/
+/build/build/
