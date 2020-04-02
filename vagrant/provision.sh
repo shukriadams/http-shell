@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 sudo apt-get update
 
+# nodejs
 sudo apt-get install git -y
 curl -sL https://deb.nodesource.com/setup_10.x | sudo -E bash -
 sudo apt-get install nodejs -y
+sudo npm install pkg -g
 
 # docker
 wget https://download.docker.com/linux/ubuntu/dists/bionic/pool/stable/amd64/containerd.io_1.2.6-3_amd64.deb

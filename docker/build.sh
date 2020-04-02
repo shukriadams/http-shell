@@ -1,11 +1,8 @@
-# copy static package references to assets folder
-cp ./node_modules/diskusage/build/Release/diskusage.node ./build &&
-
 # build 
-pkg . --targets node10-linux-x64 --output ./build/theapp &&
+pkg ./../src/. --targets node10-linux-x64 --output ./build/buildbroker &&
 
 # run app and ensure exit code was 0
-./build/theapp &&
+./build/buildbroker --version &&
 if [ $? -eq 0 ]
 then
   echo "App built"
