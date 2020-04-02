@@ -1,0 +1,36 @@
+{
+    "name": "test",
+    "license": "MIT",
+    "description": "test",
+    "devDependencies": {},
+    "bin": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "fs-extra": "9.0.0",
+        "js-yaml": "3.13.1",
+        "minimist": "1.2.5",
+        "cuid": "2.1.8",
+        "url-join": "4.0.1",
+        "express": "4.16.3",
+        "body-parser": "1.18.3",
+        "timebelt": "https://github.com/shukriadams/timebelt.git#0.1.4",
+        "madscience-httputils": "https://github.com/shukriadams/node-httpUtils.git#0.0.3",
+        "madscience-node-exec": "https://github.com/shukriadams/node-exec.git#0.0.4"
+    },
+    "pkg": {
+        "assets": [
+            "./node_modules/fs-extra/**",
+            "./node_modules/js-yaml/**",
+            "./node_modules/minimist/**",
+            "./node_modules/cuid/**",
+            "./node_modules/url-join/**",
+            "./node_modules/express/**",
+            "./node_modules/body-parser/**",
+            "./node_modules/timebelt/**",
+            "./node_modules/madscience-httputils/**",
+            "./node_modules/madscience-node-exec/**"
+        ]
+    }
+}
