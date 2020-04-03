@@ -1,15 +1,14 @@
 const process = require('process'),
     urljoin = require('url-join'),
-    httputils = require('madscience-httputils');
+    httputils = require('madscience-httputils'),
     timebelt = require('timebelt'),
-    Settings = require('./settings'),
-    fs = require('fs-extra');
+    Settings = require('./settings');
 
 // load settings files
 (async function(){
     try {
        
-        let settings = await Settings({
+        const settings = await Settings({
             version : 1,
             logPath : './logs',
             operationLog : './jobs',
@@ -17,15 +16,18 @@ const process = require('process'),
             onstart : null,
             port: 8081, // slave port
             slavePollInterval: 500, // ms
+            coordinatorPollInterval: 1000,
             logPageSize: 100,
             protocol: 'http',
             coordinator : null,
+            maxAttempts: 10,
             jobs : {}
         }, [
             '/etc/cibroker/client.yml',
             './client.yml'
         ]);
 
+        // tags can be passed in as comma-separated list, break to array
         settings.tags = settings.tags ? settings.tags.split(',') : [];
 
         // enforce required settings
@@ -38,16 +40,15 @@ const process = require('process'),
         let attempts = 0,
             slaves,
             slaveHost,
-            jobId = null,
-            maxAttempts = 60,
-            coordinatorInterval = 1000;
+            jobId = null;
+
 
         // loop to try to get a slave from coordinator, and then start job on slave
         while(true){
             attempts ++;
-            await timebelt.pause (coordinatorInterval);
-            if (attempts >= maxAttempts){
-                console.log(`failed to resolve task after ${attempts} attemptes, exiting`);
+            await timebelt.pause (settings.coordinatorPollInterval);
+            if (attempts >= settings.maxAttempts){
+                console.log(`failed to resolve task after ${attempts} attempts, exiting`);
                 process.exit(1);
             }
 
@@ -71,31 +72,43 @@ const process = require('process'),
                 continue
             }
 
-            // start with a random slave
-            eligibleSlaveNames = slaveNames.slice(0); // duplicate all names
+            // find a slave ...
+            // start : all slaves are eligible
+            eligibleSlaveNames = slaveNames.slice(0); 
+
+            // if client has tag requirements, find all slaves that satisfy all tags
             if (settings.tags.length){
-                let eligibleSlaveNames = [];
-                for (const name in slaves){
-                    if (slaves[name].tags.filter(value => settings.tags.includes(value)))
-                        eligibleSlaveNames.push(name);
+                eligibleSlaveNames = [];
+                for (const slaveName in slaves){
+                    let slaveIsEligible = true;
+                    for (const tag of settings.tags){
+                        if (!slaves[slaveName].tags.includes(tag)){
+                            slaveIsEligible = false;
+                            break;
+                        }
+                    }
+
+                    if (slaveIsEligible)
+                        eligibleSlaveNames.push(slaveName);
                 }
             }
 
+            // select a random slave of all eligible. Unlike Jenkins, we do not always route back to the same slave.
             slaveHost = eligibleSlaveNames[Math.floor(Math.random() * (eligibleSlaveNames.length + 1))];  
+
+            // no slave found, try again in next loop run
             if (!slaveHost){
-                console.log('No suitable slave currently available, waiting...');
+                console.log('Looking for a slave machine to run command on ...');
                 continue
             }
 
-
-            let response = await httputils.postUrlString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs`, `command=${argv.command}`);
-            
+            let response = await httputils.postUrlString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs`, `command=${settings.command}`);
             try {
                 jobId = JSON.parse(response.body).id;
 
                 break;
             } catch(ex){
-                console.log('unexpectd response creating job');
+                console.log('unexpected response creating job');
                 console.log(response.body);
                 return process.exit(1)
             }

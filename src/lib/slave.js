@@ -65,9 +65,11 @@ var http = require('http'),
             };
     
             // do not await this - let exec return immediately
-            await exec.sh({ cmd : req.body.command, onStdout : function(data){
+            exec.sh({ cmd : req.body.command, onStdout : function(data){
                 data = data.split('\n');
                 jobs[id].log = jobs[id].log.concat(data);
+                for(const item of data)
+                    console.log(item);
             }, onEnd : function(result){
                 jobs[id].isRunning = false;
                 jobs[id].code = result.code;
