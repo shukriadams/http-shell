@@ -10,20 +10,24 @@ var http = require('http'),
     try {
 
         let settings = await Settings({
-                port: 8082,
-                slaveTimeout: 10000
+                port: 8082,             // port to listen for incoming slave/client requests
+                slaveTimeout: 10000,    // millseconds. Slaves must update their availability. If a slave hasn't checked in after this time, it is marked as unavailable
+                slaveWhitelist : ''     // Will be converted to string array from comma-separated list. Allowed slave IPnrs. Use if you want to prevent rogue slaves.
             }, [
                 '/etc/cibroker/coordinator.yml',
                 './coordinator.yml'
             ]);
         
+        // convert comma-separated list to array, remove empties
+        settings.slaveWhitelist =  settings.slaveWhitelist.split(',').filter(i => i.trim().length > 0);
+
         app.use(bodyParser.urlencoded({ extended: false }));
         app.use(bodyParser.json());
         app.set('json spaces', 4);
     
     
         /**
-         * registers a slave
+         * Handles a slave registering itself.
          */
         app.post('/v1/slaves/:name', async function(req, res){
             try {
@@ -34,12 +38,19 @@ var http = require('http'),
                     slave = slaves[name];
                 
                 // remove empty tags, remote whitespace padding
-                tags = tags.map((tag)=>{return tag.trim()});
-                tags = tags.filter((tag)=>{ return tag.length > 0 });
+                tags = tags
+                    .map(tag => tag.trim())
+                    .filter(tag => tag.length > 0);
 
                 if (slave && slave.ip !== ip){
                     res.status(400);
-                    return res.end(`another slave has claimed the name ${name}`);
+                    return res.json({ error : `Another slave has claimed the name ${name}` });
+                }   
+
+                if (settings.slaveWhitelist.length && !settings.slaveWhitelist.includes(ip)){
+                    console.log(`Rejected slave registration from non-whitelisted ip ${ip} : ${settings.slaveWhitelist}`);
+                    res.status(400);
+                    return res.json({ error : 'You IP is not permitted - add it to coordinator whitelist' });
                 }
 
                 const isNew = !slave;
@@ -54,11 +65,11 @@ var http = require('http'),
                 if (isNew)
                     console.log(`Slave ${name} registered @ ip ${ip}, tags : "${tags}"`);
 
-                res.end('Slave registered');
+                res.json({ message : 'Slave registered' });
             } catch(ex){
                 console.log(ex);
                 res.status(500);
-                res.end(ex.toString());
+                res.json({error : ex.toString() });
             }
         });
         
@@ -72,7 +83,7 @@ var http = require('http'),
             } catch(ex){
                 console.log(ex);
                 res.status(500);
-                res.end(ex.toString());
+                res.json({ error : ex.toString() });
             }
         });
         
@@ -88,17 +99,17 @@ var http = require('http'),
     
                 if (!slave ||slave.ip !== ip){
                     res.status(404);
-                    return res.end(`Slave not found, or ip mismatch`);
+                    return res.json({ error : `Slave not found, or ip mismatch` });
                 }
         
                 delete slaves[name];
     
                 console.log(`Slave ${id} deleted`);
-                res.end();
+                res.json({});
             } catch(ex){
                 console.log(ex);
                 res.status(500);
-                res.end(ex.toString());
+                res.json({ error : ex.toString() });
             }
         });
 
@@ -119,6 +130,7 @@ var http = require('http'),
 
         var server = http.createServer(app);
         server.listen(settings.port);
+        
         console.log(`Coordinator listening on port ${settings.port}`);
     } catch(ex) {
         console.log(ex);

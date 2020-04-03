@@ -3,6 +3,7 @@ var http = require('http'),
     exec = require('madscience-node-exec'),
     bodyParser = require('body-parser'),
     httputils = require('madscience-httputils');
+    address = require('address'),
     fs = require('fs-extra'),
     urljoin = require('url-join'),
     cuid = require('cuid'),
@@ -41,7 +42,7 @@ var http = require('http'),
             // ensure that client passed in a command to run. All state for the job must therefore be passed in as switches 
             if (!req.body.command){
                 res.status(400);
-                return res.end('--command not set');
+                return res.json({ error : '--command not set' });
             }
 
             // prevent running too many jobs at once
@@ -52,7 +53,7 @@ var http = require('http'),
 
             if (running >= settings.maxJobs){
                 res.status(400);
-                return res.end('max jobs reached - try later, or another slave');
+                return res.json({ error : 'max jobs reached - try later, or another slave'});
             }
     
             const id = cuid();
@@ -88,7 +89,7 @@ var http = require('http'),
         } catch(ex){
             console.log(ex);
             res.status(500);
-            res.end(ex.toString());
+            res.json({ error : ex.toString() });
         }
     });
     
@@ -105,7 +106,7 @@ var http = require('http'),
     
             if (!job){
                 res.status(404);
-                return res.end(`Job ${id} not found`);
+                return res.json({error : `Job ${id} not found`});
             }
     
             res.json({
@@ -118,7 +119,7 @@ var http = require('http'),
         } catch(ex){
             console.log(ex);
             res.status(500);
-            res.end(ex.toString());
+            res.json({error : ex.toString()});
         }
     });
     
@@ -133,24 +134,29 @@ var http = require('http'),
     
             if (!job){
                 res.status(404);
-                return res.end(`Job ${id} not found`);
+                return res.json({error : `Job ${id} not found`});
             }
     
             delete jobs[id];
             console.log(`Job ${id} deleted`);
-            res.end();
+            res.json({message : 'Job deleted '});
         } catch(ex){
             console.log(ex);
             res.status(500);
-            res.end(ex.toString());
+            res.json({ error : ex.toString() });
         }
     });
     
     // internal maintenace loop
     setInterval(async function(){
         // keep registered with coordinator
+        let result;
         try {
-            let result = await httputils.postUrlString(urljoin(settings.coordinatorUrl, `/v1/slaves/${encodeURIComponent(settings.name)}?tags=${encodeURIComponent(settings.tags)}&registerInterval=${settings.registerInterval}`));
+            result = await httputils.postUrlString(urljoin(settings.coordinatorUrl, `/v1/slaves/${encodeURIComponent(settings.name)}?tags=${encodeURIComponent(settings.tags)}&registerInterval=${settings.registerInterval}`));
+            result = JSON.parse(result.body);
+            if (result.error)
+                throw result.error;
+
             if (!registered)
                 console.log(`Registered with coordinator @ ${settings.coordinatorUrl}`);
 
@@ -158,7 +164,7 @@ var http = require('http'),
             // harden this!
         }catch(ex){
             if (ex.code === 'ECONNREFUSED')
-                console.log(`${timebelt.toShort(new Date())} - Coordinator unreachable`);
+                console.log(`${timebelt.toShortTime(new Date())} - Coordinator unreachable`);
             else {
                 console.log('failed to register with coordinator');
                 console.log(ex);
@@ -172,6 +178,6 @@ var http = require('http'),
     var server = http.createServer(app);
     server.listen(settings.port);
     console.log(`Slave listening on port ${settings.port}`);
-    
+    console.log(`IP is ${address.ip('lo')} - if Coordinator has whitelisting enabled, add this to whitelist.`);
 })()
 
