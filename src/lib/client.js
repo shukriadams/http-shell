@@ -1,6 +1,7 @@
 const process = require('process'),
     urljoin = require('url-join'),
     httputils = require('madscience-httputils'),
+    http = require('http'),
     timebelt = require('timebelt'),
     Settings = require('./settings');
 
@@ -19,7 +20,7 @@ const process = require('process'),
             coordinatorPollInterval: 1000,
             logPageSize: 100,
             protocol: 'http',
-            coordinator : null,
+            coordinator : 'localhost:8082',
             maxAttempts: 10,
             jobs : {}
         }, [
@@ -43,7 +44,29 @@ const process = require('process'),
         let attempts = 0,
             slaves,
             slaveHost,
+            pid,
             jobId = null;
+
+        function handleExit(){
+            console.log('aborting!');
+
+            if (pid){
+                console.log(`${settings.protocol}://${slaveHost}:${settings.port}/v1/pkill/${pid}`);
+                console.log('pkilling!' + pid);
+                let exec = require('child_process');
+                exec.execSync(`curl ${settings.protocol}://${slaveHost}:${settings.port}/v1/pkill/${pid}`, function (error, stderr) {
+                    if (error) {
+                        console.log(error);
+                    }
+                });
+            }
+
+            process.exit(1);
+        }
+
+        //do something when app is closing
+        process.on('SIGINT', handleExit);
+
 
 
         // loop to try to get a slave from coordinator, and then start job on slave
@@ -107,7 +130,9 @@ const process = require('process'),
 
             let response = await httputils.postUrlString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs`, `command=${encodeURIComponent(settings.command)}`);
             try {
-                jobId = JSON.parse(response.body).id;
+                let jobDetails =JSON.parse(response.body);
+                jobId = jobDetails.id;
+                pid = jobDetails.pid;
 
                 break;
             } catch(ex){
@@ -139,7 +164,8 @@ const process = require('process'),
                 index += status.log.length;
 
                 if(status.running){
-                    console.log(status.log.join('\n'));
+                    if (status.log.length)
+                        console.log(status.log.join('\n'));
                 } else {
                     await httputils.delete(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs/${jobId}`);
                     clearInterval(interval);

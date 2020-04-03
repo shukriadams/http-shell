@@ -87,21 +87,36 @@ var http = require('http'),
             
             let command = decodeURIComponent(req.body.command);
 
-            // do not await this - let exec return immediately
+            // wrap in anon so we can await it but let calling thread continue immediately
             (async function(){
                 try {
-                    await exec.sh({ cmd : command, onStdout : function(data){
-                        data = data.split('\n');
-                        jobs[id].log = jobs[id].log.concat(data);
+                    await exec.sh({ cmd : command, 
+                        onStdout : function(data){
+                            data = data.split('\n');
+                            jobs[id].log = jobs[id].log.concat(data);
         
-                        for(const item of data)
-                            console.log(item);
+                            for(const item of data)
+                                console.log(item);
         
-                    }, onEnd : function(result){
-                        jobs[id].isRunning = false;
-                        jobs[id].code = result.code;
-                        jobs[id].passed = result.passed;
-                    }});
+                        }, 
+                        onStart : function(args){
+                            console.log(`Job ${id} created, pid is ${args.pid}`);
+                            console.log(`Command : ${req.body.command}`);
+
+                            res.json({
+                                id,
+                                pid : args.pid,
+                                status : 'Job started',
+                                date : new Date(),
+                                jobCount : Object.keys(jobs).length 
+                            });                            
+                        },
+                        onEnd : function(result){
+                            jobs[id].isRunning = false;
+                            jobs[id].code = result.code;
+                            jobs[id].passed = result.passed;
+                        }
+                    });
 
                 } catch(ex){
                     jobs[id].isRunning = false;
@@ -111,14 +126,7 @@ var http = require('http'),
                 }
             })()
             
-            console.log(`Job ${id} created`);
-            console.log(`Running command : ${req.body.command}`);
-            res.json({
-                id,
-                status : 'Job started',
-                date : new Date(),
-                jobCount : Object.keys(jobs).length 
-            });
+
     
         } catch(ex){
             console.log(ex);
@@ -127,6 +135,17 @@ var http = require('http'),
         }
     });
     
+    app.get('/v1/pkill/:pid', async function(req, res){
+        console.log(`Received pkill order for ${req.params.pid} `);
+        let pid = req.params.pid;
+        try {
+            await exec.sh({ cmd : `kill -9 ${req.params.pid}`});
+        } catch(ex){
+            console.log(`failed to kill process ${req.params.pid} : ${ex} `);
+            res.status(500);
+            res.json({ error : ex.toString() });
+        }
+    });
     
     /**
      * Gets status of an existing job.
