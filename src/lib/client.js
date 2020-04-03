@@ -34,6 +34,9 @@ const process = require('process'),
         if (!settings.coordinator)
             throw 'Client mode requires coordinator [URL]';
 
+        if (!settings.coordinator.startsWith('http://'))    
+            settings.coordinator = `http://${settings.coordinator}`;
+
         if (!settings.command || !settings.command.length)
             throw 'Client mode requires command [shell command].';
 

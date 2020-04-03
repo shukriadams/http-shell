@@ -17,7 +17,7 @@ var http = require('http'),
 (async function(){
 
     let settings = await Settings({
-        coordinatorUrl : 'http://127.0.0.1:8082',
+        coordinator : '127.0.0.1:8082',
         registerInterval : 5000,
         maxJobs : 1,
         name : os.hostname,
@@ -28,11 +28,31 @@ var http = require('http'),
         './slave.yml'
     ]);
 
+    if (!settings.coordinator.startsWith('http://'))    
+        settings.coordinator = `http://${settings.coordinator}`;
+
+
     app.use(bodyParser.urlencoded({ extended: false }));
     app.use(bodyParser.json());
     app.set('json spaces', 4);
     
-    
+
+    /**
+    * Test if sh present - this is mostly for windows systems. there is no guaranteed way to detect bash, so we run a 
+    * standard command and if that fails, assume that the error must be caused by bash not being present
+    */
+    try {
+        await exec.sh({ cmd : 'ls .'});
+    } catch (ex){
+        if (ex.code === 'ENOENT'){
+            console.log('bash not found - please install and add to system PATH if applicable.');
+            process.exit(1);
+        }
+        else
+            throw ex;
+    }
+        
+
     /**
      * Creates a job
      */    
@@ -69,8 +89,10 @@ var http = require('http'),
             exec.sh({ cmd : req.body.command, onStdout : function(data){
                 data = data.split('\n');
                 jobs[id].log = jobs[id].log.concat(data);
+
                 for(const item of data)
                     console.log(item);
+
             }, onEnd : function(result){
                 jobs[id].isRunning = false;
                 jobs[id].code = result.code;
@@ -147,24 +169,25 @@ var http = require('http'),
         }
     });
     
+
     // internal maintenace loop
     setInterval(async function(){
         // keep registered with coordinator
         let result;
         try {
-            result = await httputils.postUrlString(urljoin(settings.coordinatorUrl, `/v1/slaves/${encodeURIComponent(settings.name)}?tags=${encodeURIComponent(settings.tags)}&registerInterval=${settings.registerInterval}`));
+            result = await httputils.postUrlString(urljoin(settings.coordinator, `/v1/slaves/${encodeURIComponent(settings.name)}?tags=${encodeURIComponent(settings.tags)}&registerInterval=${settings.registerInterval}`));
             result = JSON.parse(result.body);
             if (result.error)
                 throw result.error;
 
             if (!registered)
-                console.log(`Registered with coordinator @ ${settings.coordinatorUrl}`);
+                console.log(`Registered with coordinator @ ${settings.coordinator}`);
 
             registered = true;
             // harden this!
         }catch(ex){
             if (ex.code === 'ECONNREFUSED')
-                console.log(`${timebelt.toShortTime(new Date())} - Coordinator unreachable`);
+                console.log(`${timebelt.toShortTime(new Date())} - coordinator @ ${settings.coordinator} unreachable`);
             else {
                 console.log('failed to register with coordinator');
                 console.log(ex);
@@ -178,6 +201,6 @@ var http = require('http'),
     var server = http.createServer(app);
     server.listen(settings.port);
     console.log(`Slave listening on port ${settings.port}`);
-    console.log(`IP is ${address.ip('lo')} - if Coordinator has whitelisting enabled, add this to whitelist.`);
+    console.log(`IP is ${address.ip()} - if Coordinator has whitelisting enabled, add this to whitelist.`);
 })()
 
