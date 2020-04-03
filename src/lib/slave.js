@@ -84,20 +84,32 @@ var http = require('http'),
                 code : null,
                 isRunning : true
             };
-    
+            
+            let command = decodeURIComponent(req.body.command);
+
             // do not await this - let exec return immediately
-            exec.sh({ cmd : req.body.command, onStdout : function(data){
-                data = data.split('\n');
-                jobs[id].log = jobs[id].log.concat(data);
+            (async function(){
+                try {
+                    await exec.sh({ cmd : command, onStdout : function(data){
+                        data = data.split('\n');
+                        jobs[id].log = jobs[id].log.concat(data);
+        
+                        for(const item of data)
+                            console.log(item);
+        
+                    }, onEnd : function(result){
+                        jobs[id].isRunning = false;
+                        jobs[id].code = result.code;
+                        jobs[id].passed = result.passed;
+                    }});
 
-                for(const item of data)
-                    console.log(item);
-
-            }, onEnd : function(result){
-                jobs[id].isRunning = false;
-                jobs[id].code = result.code;
-                jobs[id].passed = result.passed;
-            }});
+                } catch(ex){
+                    jobs[id].isRunning = false;
+                    jobs[id].code = 1;
+                    jobs[id].log.push(JSON.stringify(ex));
+                    console.log(ex);
+                }
+            })()
             
             console.log(`Job ${id} created`);
             console.log(`Running command : ${req.body.command}`);

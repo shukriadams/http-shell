@@ -105,7 +105,7 @@ const process = require('process'),
                 continue
             }
 
-            let response = await httputils.postUrlString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs`, `command=${settings.command}`);
+            let response = await httputils.postUrlString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs`, `command=${encodeURIComponent(settings.command)}`);
             try {
                 jobId = JSON.parse(response.body).id;
 
