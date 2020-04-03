@@ -3,12 +3,11 @@ var http = require('http'),
     exec = require('madscience-node-exec'),
     bodyParser = require('body-parser'),
     httputils = require('madscience-httputils');
-    minimist = require('minimist'),
-    yaml = require('js-yaml'),
     fs = require('fs-extra'),
     urljoin = require('url-join'),
     cuid = require('cuid'),
     os = require('os'),
+    Settings = require('./settings'),
     app = Express(),
     registered = false,
     timebelt = require('timebelt'),
@@ -16,35 +15,17 @@ var http = require('http'),
 
 (async function(){
 
-    let settingsPath = null,
-        settings = {
-            coordinatorUrl : 'http://127.0.0.1:8082',
-            registerInterval : 5000,
-            maxJobs : 1,
-            name : os.hostname,
-            tags: '',
-            port : 8081
-        };
-
-    if (await fs.exists('/etc/cibroker/slave.yml'))
-        settingsPath = '/etc/cibroker/slave.yml' 
-    else if (await fs.exists('./slave.yml'))
-        settingsPath = './slave.yml'; 
-
-    if (settingsPath){
-        let rawSettings = await fs.readFile(settingsPath, 'utf8');
-        try {
-            settings = Object.assign(settings, yaml.safeLoad(rawSettings));
-        } catch(ex){
-            throw  `unable to to parse YML ${ex}`;
-        }
-    }
-
-    // allow argv to override settings
-    let argv = minimist(process.argv.slice(2));
-    for (let property in argv)
-        settings[property] = argv[property];    
-
+    let settings = await Settings({
+        coordinatorUrl : 'http://127.0.0.1:8082',
+        registerInterval : 5000,
+        maxJobs : 1,
+        name : os.hostname,
+        tags: '',
+        port : 8081
+    }, [
+        '/etc/cibroker/slave.yml',
+        './slave.yml'
+    ]);
 
     app.use(bodyParser.urlencoded({ extended: false }));
     app.use(bodyParser.json());
@@ -52,16 +33,18 @@ var http = require('http'),
     
     
     /**
-     * 
+     * Creates a job
      */    
     app.post('/v1/jobs', async function(req, res){
         try {
-     
+            
+            // ensure that client passed in a command to run. All state for the job must therefore be passed in as switches 
             if (!req.body.command){
                 res.status(400);
                 return res.end('--command not set');
             }
 
+            // prevent running too many jobs at once
             let running = 0;
             for (const name in jobs)
                 if (jobs[name].isRunning)
@@ -75,6 +58,7 @@ var http = require('http'),
             const id = cuid();
             jobs[id] = {
                 log : [],
+                created: new Date,
                 passed : false,
                 code : null,
                 isRunning : true
@@ -108,7 +92,7 @@ var http = require('http'),
     
     
     /**
-     * 
+     * Gets status of an existing job.
      */    
     app.get('/v1/jobs/:id/:index', async function(req, res){
         try {
@@ -138,7 +122,7 @@ var http = require('http'),
     
     
     /**
-     * 
+     * Deletes a job - it is up to the client to clean up the jobs it creates.
      */
     app.delete('/v1/jobs/:id', async function(req, res){
         try {
@@ -160,8 +144,9 @@ var http = require('http'),
         }
     });
     
-    // keep registered with coordinator
+    // internal maintenace loop
     setInterval(async function(){
+        // keep registered with coordinator
         try {
             let result = await httputils.postUrlString(urljoin(settings.coordinatorUrl, `/v1/slaves/${encodeURIComponent(settings.name)}?tags=${encodeURIComponent(settings.tags)}&registerInterval=${settings.registerInterval}`));
             if (!registered)
@@ -177,6 +162,8 @@ var http = require('http'),
                 console.log(ex);
             }
         }
+
+        // todo : cleanup dead jobs that clients have abandoned
 
     }, settings.registerInterval)
     

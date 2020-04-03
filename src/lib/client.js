@@ -1,17 +1,15 @@
 const process = require('process'),
-    minimist = require('minimist'),
-    yaml = require('js-yaml'),
     urljoin = require('url-join'),
     httputils = require('madscience-httputils');
     timebelt = require('timebelt'),
+    Settings = require('./settings'),
     fs = require('fs-extra');
 
 // load settings files
 (async function(){
     try {
        
-        // default settings here
-        let settings = {
+        let settings = await Settings({
             version : 1,
             logPath : './logs',
             operationLog : './jobs',
@@ -21,39 +19,21 @@ const process = require('process'),
             slavePollInterval: 500, // ms
             logPageSize: 100,
             protocol: 'http',
-            coordinator : 'http://127.0.0.1:8082',
+            coordinator : null,
             jobs : {}
-        };
-
-
-        // load settings
-        let settingsPath = null;
-        if (await fs.exists('/etc/cibroker/client.yml'))
-            settingsPath = '/etc/cibroker/client.yml' 
-        else if (await fs.exists('./client.yml'))
-            settingsPath = './client.yml'; 
-
-        if (settingsPath){
-            let rawSettings = await fs.readFile(settingsPath, 'utf8');
-            try {
-                settings = Object.assign(settings, yaml.safeLoad(rawSettings));
-            } catch(ex){
-                throw  `unable to to parse YML ${ex}`;
-            }
-        }
-
-        let argv = minimist(process.argv.slice(2));
-        for (let property in argv)
-            settings[property] = argv[property];
+        }, [
+            '/etc/cibroker/client.yml',
+            './client.yml'
+        ]);
 
         settings.tags = settings.tags ? settings.tags.split(',') : [];
 
         // enforce required settings
-        if (!settings.controllerUrl)
-            throw 'settings missing "controllerUrl" value';
+        if (!settings.coordinator)
+            throw 'Client mode requires coordinator [URL]';
 
-        if (!settings.command)
-            throw '--command not set';
+        if (!settings.command || !settings.command.length)
+            throw 'Client mode requires command [shell command].';
 
         let attempts = 0,
             slaves,
@@ -62,7 +42,7 @@ const process = require('process'),
             maxAttempts = 60,
             coordinatorInterval = 1000;
 
-        // loop to start job
+        // loop to try to get a slave from coordinator, and then start job on slave
         while(true){
             attempts ++;
             await timebelt.pause (coordinatorInterval);
@@ -133,7 +113,7 @@ const process = require('process'),
         // slave accepted job but failed anyway
         // slave X keeps failing job
 
-        // loop to get job status
+        // loop to get job status from slave
         let index = 0;
         let interval = setInterval(async () => {
             let status = null;

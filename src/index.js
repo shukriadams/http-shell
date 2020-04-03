@@ -11,7 +11,7 @@ if (argv.version){
 }
     
 if (process.argv.length < 3){
-    console.log('Missing argument - broker [client|slave|coordinator]');
+    console.log('Mode required. Allowed values are [client|slave|coordinator]');
     process.exit(1);
 }
 
@@ -30,7 +30,7 @@ switch(funct){
         break;
     }
     default: {  
-        console.log(`${funct} is not supported - used client|slave|coordinator`);
+        console.log(`Invalid mode "${funct}" - use [client|slave|coordinator]`);
         process.exit(1);
     }
 }

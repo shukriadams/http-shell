@@ -1,41 +1,21 @@
 var http = require('http'),
     Express = require('express'),
     bodyParser = require('body-parser'),
-    minimist = require('minimist'),
-    yaml = require('js-yaml'),
-    fs = require('fs-extra'),
+    Settings = require('./settings'),
     app = Express(),
     slaves = {};
 
 (async function(){
 
     try {
-        
-        let settingsPath = null,
-            settings = {
+
+        let settings = await Settings({
                 port: 8082,
-                slaveTimeout: 10000 
-            };
-
-        if (await fs.exists('/etc/cibroker/coordinator.yml'))
-            settingsPath = '/etc/cibroker/coordinator.yml' 
-        else if (await fs.exists('./coordinator.yml'))
-            settingsPath = './coordinator.yml'; 
-        
-        if (settingsPath){
-            let rawSettings = await fs.readFile(settingsPath, 'utf8');
-            try {
-                settings = Object.assign(settings, yaml.safeLoad(rawSettings));
-            } catch(ex){
-                throw  `unable to to parse YML ${ex}`;
-            }
-        }
-
-        // allow argv to override settings
-        let argv = minimist(process.argv.slice(2));
-        for (let property in argv)
-            settings[property] = argv[property];
-        
+                slaveTimeout: 10000
+            }, [
+                '/etc/cibroker/coordinator.yml',
+                './coordinator.yml'
+            ]);
         
         app.use(bodyParser.urlencoded({ extended: false }));
         app.use(bodyParser.json());
