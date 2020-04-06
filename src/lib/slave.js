@@ -4,6 +4,7 @@ var http = require('http'),
     bodyParser = require('body-parser'),
     httputils = require('madscience-httputils');
     address = require('address'),
+    fkill = require('fkill'),
     fs = require('fs-extra'),
     urljoin = require('url-join'),
     cuid = require('cuid'),
@@ -136,14 +137,18 @@ var http = require('http'),
     });
     
     app.get('/v1/pkill/:pid', async function(req, res){
-        console.log(`Received pkill order for ${req.params.pid} `);
-        let pid = req.params.pid;
+        let pid = parseInt(req.params.pid);
+        
+        if (isNaN(pid))
+            pid = req.params.pid.trim();
+
+        console.log(`Received pkill order for "${pid}"`);
+        res.end('pkill received');
+
         try {
-            await exec.sh({ cmd : `kill -9 ${req.params.pid}`});
+            await fkill(pid);
         } catch(ex){
             console.log(`failed to kill process ${req.params.pid} : ${ex} `);
-            res.status(500);
-            res.json({ error : ex.toString() });
         }
     });
     

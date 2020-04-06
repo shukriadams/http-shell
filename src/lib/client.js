@@ -48,17 +48,15 @@ const process = require('process'),
             jobId = null;
 
         function handleExit(){
-            console.log('aborting!');
-
             if (pid){
                 console.log(`${settings.protocol}://${slaveHost}:${settings.port}/v1/pkill/${pid}`);
-                console.log('pkilling!' + pid);
-                let exec = require('child_process');
-                exec.execSync(`curl ${settings.protocol}://${slaveHost}:${settings.port}/v1/pkill/${pid}`, function (error, stderr) {
-                    if (error) {
-                        console.log(error);
-                    }
-                });
+                console.log(`Send remote pkill for "${pid}"`);
+                (function(){
+                    let exec = require('child_process');
+                    exec.execSync(`curl ${settings.protocol}://${slaveHost}:${settings.port}/v1/pkill/${pid}`, function (error, stderr) {
+                        // we don't care about errors
+                    });
+                })()
             }
 
             process.exit(1);
