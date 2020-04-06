@@ -129,6 +129,9 @@ const process = require('process'),
             let response = await httputils.postUrlString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs`, `command=${encodeURIComponent(settings.command)}`);
             try {
                 let jobDetails =JSON.parse(response.body);
+                if (jobDetails.error)
+                    throw jobDetails.error;
+
                 jobId = jobDetails.id;
                 pid = jobDetails.pid;
 
@@ -159,7 +162,7 @@ const process = require('process'),
             try {
                 let status = await httputils.downloadString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs/${jobId}/${index}?pagesize=${settings.logPageSize}`);
                 status = JSON.parse(status.body);
-                index += status.log.length;
+                index += status.log ? status.log.length : 0;
 
                 if(status.running){
                     if (status.log.length)

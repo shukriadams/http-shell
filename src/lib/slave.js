@@ -146,7 +146,7 @@ var http = require('http'),
         res.end('pkill received');
 
         try {
-            await fkill(pid);
+            await fkill(pid, { force: true});
         } catch(ex){
             console.log(`failed to kill process ${req.params.pid} : ${ex} `);
         }
