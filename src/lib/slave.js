@@ -2,9 +2,9 @@ var http = require('http'),
     Express = require('express'),
     exec = require('madscience-node-exec'),
     bodyParser = require('body-parser'),
+    process = require('process'),
     httputils = require('madscience-httputils');
     address = require('address'),
-    fkill = require('fkill'),
     fs = require('fs-extra'),
     urljoin = require('url-join'),
     cuid = require('cuid'),
@@ -32,11 +32,9 @@ var http = require('http'),
     if (!settings.coordinator.startsWith('http://'))    
         settings.coordinator = `http://${settings.coordinator}`;
 
-
     app.use(bodyParser.urlencoded({ extended: false }));
     app.use(bodyParser.json());
     app.set('json spaces', 4);
-    
 
     /**
     * Test if sh present - this is mostly for windows systems. there is no guaranteed way to detect bash, so we run a 
@@ -146,7 +144,13 @@ var http = require('http'),
         res.end('pkill received');
 
         try {
-            await fkill(pid, { force: true});
+            if (process.platform === 'win32')
+                await exec.spawn({ cmd : 'Taskkill', args : [ '\/PID', pid, '\/f', '\/t']});
+            else if (process.platform === 'linux')
+                await exec.sh({ cmd: 'kill', args : ['-9', pid] });
+            else 
+                console.log('Process kill not supported on this OS.');
+
         } catch(ex){
             console.log(`failed to kill process ${req.params.pid} : ${ex} `);
         }

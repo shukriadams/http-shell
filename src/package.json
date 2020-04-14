@@ -18,7 +18,6 @@
         "express": "4.16.3",
         "body-parser": "1.18.3",
         "address": "1.1.2",
-        "fkill": "7.0.0",
         "timebelt": "https://github.com/shukriadams/timebelt.git#0.1.4",
         "madscience-httputils": "https://github.com/shukriadams/node-httpUtils.git#0.0.3",
         "madscience-node-exec": "https://github.com/shukriadams/node-exec.git#0.0.5"
@@ -30,7 +29,6 @@
             "./node_modules/js-yaml/**",
             "./node_modules/minimist/**",
             "./node_modules/cuid/**",
-            "./node_modules/fkill/**",
             "./node_modules/url-join/**",
             "./node_modules/express/**",
             "./node_modules/address/**",
