@@ -1,4 +1,4 @@
-var http = require('http'),
+const http = require('http'),
     Express = require('express'),
     bodyParser = require('body-parser'),
     Settings = require('./settings'),
@@ -128,7 +128,7 @@ var http = require('http'),
             }
         }, 500)
 
-        var server = http.createServer(app)
+        const server = http.createServer(app)
         server.listen(settings.port)
         
         console.log(`Coordinator listening on port ${settings.port}`)

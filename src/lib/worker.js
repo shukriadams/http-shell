@@ -3,8 +3,6 @@ let http = require('http'),
     exec = require('madscience-node-exec'),
     bodyParser = require('body-parser'),
     process = require('process'),
-    minimist = require('minimist'),
-    argv = minimist(process.argv.slice(2)),
     httputils = require('madscience-httputils');
     address = require('address'),
     fs = require('fs-extra'),
@@ -37,6 +35,14 @@ let http = require('http'),
     app.use(bodyParser.urlencoded({ extended: false }))
     app.use(bodyParser.json())
     app.set('json spaces', 4)
+
+    function split(input){
+        input = input.replace(/\r\n/g, '\n')
+        input = input.replace(/\r/g, '\n')
+        input = input.replace(/\\n/g, '\n')
+        input = input.replace(/\\r/g, '\n')
+        return input.split('\n')
+    }
 
     /**
     * Test if sh present - this is mostly for windows systems. there is no guaranteed way to detect bash, so we run a 
@@ -93,13 +99,16 @@ let http = require('http'),
                 try {
                     await exec.sh({ cmd : command, 
                         onStdout : function(data){
-                            data = data.split('\n')
+                            data = split(data)
                             jobs[id].log = jobs[id].log.concat(data)
         
                             for(const item of data)
                                 console.log(item)
         
                         }, 
+                        onStderr : (data)=>{
+                            console.log('ERR', data)
+                        },
                         onStart : function(args){
                             console.log(`Job ${id} created, pid is ${args.pid}`)
                             console.log(`Command : ${req.body.command}`)
@@ -122,8 +131,8 @@ let http = require('http'),
                 } catch(ex){
                     jobs[id].isRunning = false
                     jobs[id].code = 1
-                    jobs[id].log.push(JSON.stringify(ex))
-                    console.log(ex)
+                    jobs[id].log = jobs[id].log.concat(split(JSON.stringify(ex)))
+                    console.log(`Error :  ${ex}`)
                 }
             })()
             

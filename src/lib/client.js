@@ -1,7 +1,6 @@
 const process = require('process'),
     urljoin = require('url-join'),
     httputils = require('madscience-httputils'),
-    http = require('http'),
     timebelt = require('timebelt'),
     Settings = require('./settings');
 
@@ -180,12 +179,12 @@ const process = require('process'),
 
                     if(status.running){
                         if (status.log.length)
-                            console.log(status.log)
+                            console.log(status.log.join('\n'))
                     } else {
                         await httputils.delete(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs/${jobId}`)
                         clearInterval(interval)
 
-                        if (status.failed){
+                        if (!status.passed){
                             console.log(`Job failed`)
                             return process.exit(1)
                         }
