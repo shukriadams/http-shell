@@ -9,29 +9,29 @@ const minimist = require('minimist'),
     yaml = require('js-yaml');
 
 module.exports = async function(defaults = {}, overrideFiles = []){
-    let settingsPath = null;
+    let settingsPath = null
 
     for (const overrideFile of overrideFiles){
         if (await fs.exists(overrideFile)){
-            settingsPath = overrideFile;
-            break;
+            settingsPath = overrideFile
+            break
         }
     }
 
     // allow yml to override defaults
     if (settingsPath){
-        let rawSettings = await fs.readFile(settingsPath, 'utf8');
+        let rawSettings = await fs.readFile(settingsPath, 'utf8')
         try {
-            defaults = Object.assign(defaults, yaml.safeLoad(rawSettings));
+            defaults = Object.assign(defaults, yaml.safeLoad(rawSettings))
         } catch(ex){
-            throw  `unable to to parse YML ${ex}`;
+            throw  `unable to to parse YML ${ex}`
         }
     }
 
     // allow argv to override default and yml
-    let argv = minimist(process.argv.slice(2));
+    let argv = minimist(process.argv.slice(2))
     for (let property in argv)
-        defaults[property] = argv[property];
+        defaults[property] = argv[property]
 
-    return defaults;
+    return defaults
 }

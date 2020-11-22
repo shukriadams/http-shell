@@ -25,7 +25,7 @@ let http = require('http'),
         maxJobs : 1,
         name : os.hostname,
         tags: '',
-        port : 8081
+        port : 8083
     }, [
         '/etc/cibroker/worker.yml',
         './worker.yml'
@@ -47,7 +47,7 @@ let http = require('http'),
     } catch (ex){
         if (ex.code === 'ENOENT'){
             console.log('bash not found - please install and add to system PATH if applicable.')
-            process.exit(1)
+            return process.exit(1)
         }
         else
             throw ex
@@ -85,8 +85,8 @@ let http = require('http'),
                 code : null,
                 isRunning : true
             }
-            
-            let command = decodeURIComponent(req.body.command)
+
+            let command = decodeURIComponent(req.body.command);
 
             // wrap in anon so we can await it but let calling thread continue immediately
             (async function(){
@@ -252,7 +252,7 @@ let http = require('http'),
     server.listen(settings.port)
     console.log(`Worker : listening on port ${settings.port}`)
     if (!settings.coordinator)
-        console.log(`Worker : coordinator not set, accepting local connections only`)
+        console.log(`Worker : coordinator not set, accepting direct client connections`)
     else
         console.log(`Worker : ip is ${address.ip()} - if coordinator has whitelisting enabled, add this to whitelist.`)
 
