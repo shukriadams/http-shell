@@ -15,8 +15,8 @@ const process = require('process'),
             operationLog : './jobs',
             timeout: 600000, // timeout of http calls. default is 10 minutes. Set to 0 to disable.
             onstart : null,
-            port: 8081, // slave port
-            slavePollInterval: 500, // ms
+            port: 8081, // worker port
+            workerPollInterval: 500, // ms
             coordinatorPollInterval: 1000,
             logPageSize: 100,
             protocol: 'http',
@@ -26,119 +26,119 @@ const process = require('process'),
         }, [
             '/etc/cibroker/client.yml',
             './client.yml'
-        ]);
+        ])
 
         // tags can be passed in as comma-separated list, break to array
-        settings.tags = settings.tags ? settings.tags.split(',') : [];
+        settings.tags = settings.tags ? settings.tags.split(',') : []
 
         // enforce required settings
         if (!settings.coordinator)
-            throw 'Client mode requires coordinator [URL]';
+            throw 'Client mode requires coordinator [URL]'
 
         if (!settings.coordinator.startsWith('http://'))    
-            settings.coordinator = `http://${settings.coordinator}`;
+            settings.coordinator = `http://${settings.coordinator}`
 
         if (!settings.command || !settings.command.length)
-            throw 'Client mode requires command [shell command].';
+            throw 'Client mode requires command [shell command].'
 
         let attempts = 0,
-            slaves,
-            slaveHost,
+            workers,
+            workerHost,
             pid,
-            jobId = null;
+            jobId = null
 
         function handleExit(){
             if (pid){
-                console.log(`${settings.protocol}://${slaveHost}:${settings.port}/v1/pkill/${pid}`);
-                console.log(`Send remote pkill for "${pid}"`);
+                console.log(`${settings.protocol}://${workerHost}:${settings.port}/v1/pkill/${pid}`)
+                console.log(`Send remote pkill for "${pid}"`)
                 (function(){
-                    let exec = require('child_process');
-                    exec.execSync(`curl ${settings.protocol}://${slaveHost}:${settings.port}/v1/pkill/${pid}`, function (error, stderr) {
+                    let exec = require('child_process')
+                    exec.execSync(`curl ${settings.protocol}://${workerHost}:${settings.port}/v1/pkill/${pid}`, function (error, stderr) {
                         // we don't care about errors
-                    });
+                    })
                 })()
             }
 
-            process.exit(1);
+            process.exit(1)
         }
 
         //do something when app is closing
-        process.on('SIGINT', handleExit);
+        process.on('SIGINT', handleExit)
 
 
 
-        // loop to try to get a slave from coordinator, and then start job on slave
+        // loop to try to get a worker from coordinator, and then start job on worker
         while(true){
-            attempts ++;
-            await timebelt.pause (settings.coordinatorPollInterval);
+            attempts ++
+            await timebelt.pause (settings.coordinatorPollInterval)
             if (attempts >= settings.maxAttempts){
-                console.log(`failed to resolve task after ${attempts} attempts, exiting`);
-                process.exit(1);
+                console.log(`failed to resolve task after ${attempts} attempts, exiting`)
+                process.exit(1)
             }
 
-            // try to get slave list
+            // try to get worker list
             try {
-                slaves = await httputils.downloadString(urljoin(settings.coordinator, '/v1/slaves'));
-                slaves = JSON.parse(slaves.body);
+                workers = await httputils.downloadString(urljoin(settings.coordinator, '/v1/workers'))
+                workers = JSON.parse(workers.body)
             }catch(ex){
                 if (ex.code === 'ECONNREFUSED')
-                    console.log(`coordinator unreachable @ ${settings.coordinator}`);
+                    console.log(`coordinator unreachable @ ${settings.coordinator}`)
                 else{
-                    console.log(`Error getting slave list from coordinator`, ex);
+                    console.log(`Error getting worker list from coordinator`, ex)
                 }
-                continue;
-            }
-
-            // did coordinator return any slaves
-            let slaveNames = Object.keys(slaves);
-            if (!slaveNames.length){
-                console.log('No slaves registered on coordinator.');
                 continue
             }
 
-            // find a slave ...
-            // start : all slaves are eligible
-            eligibleSlaveNames = slaveNames.slice(0); 
+            // did coordinator return any workers
+            let workerNames = Object.keys(workers)
+            if (!workerNames.length){
+                console.log('No workers registered on coordinator.')
+                continue
+            }
 
-            // if client has tag requirements, find all slaves that satisfy all tags
+            // find a worker ...
+            // start : all workers are eligible
+            eligibleWorkerNames = workerNames.slice(0)
+
+            // if client has tag requirements, find all workers that satisfy all tags
             if (settings.tags.length){
-                eligibleSlaveNames = [];
-                for (const slaveName in slaves){
-                    let slaveIsEligible = true;
+                eligibleWorkerNames = []
+                for (const workerName in workers){
+                    let workerIsEligible = true
                     for (const tag of settings.tags){
-                        if (!slaves[slaveName].tags.includes(tag)){
-                            slaveIsEligible = false;
-                            break;
+                        if (!workers[workerName].tags.includes(tag)){
+                            workerIsEligible = false
+                            break
                         }
                     }
 
-                    if (slaveIsEligible)
-                        eligibleSlaveNames.push(slaveName);
+                    if (workerIsEligible)
+                        eligibleWorkerNames.push(workerName)
                 }
             }
 
-            // select a random slave of all eligible. Unlike Jenkins, we do not always route back to the same slave.
-            slaveHost = eligibleSlaveNames[Math.floor(Math.random() * (eligibleSlaveNames.length + 1))];  
+            // select a random worker of all eligible. Unlike Jenkins, we do not always route back to the same worker.
+            workerHost = eligibleWorkerNames[Math.floor(Math.random() * (eligibleWorkerNames.length + 1))]
 
-            // no slave found, try again in next loop run
-            if (!slaveHost){
-                console.log('Looking for a slave machine to run command on ...');
+            // no worker found, try again in next loop run
+            if (!workerHost){
+                console.log('Looking for a worker machine to run command on ...')
                 continue
             }
 
-            let response = await httputils.postUrlString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs`, `command=${encodeURIComponent(settings.command)}`);
+            let response = await httputils.postUrlString(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs`, `command=${encodeURIComponent(settings.command)}`)
             try {
-                let jobDetails =JSON.parse(response.body);
+                let jobDetails =JSON.parse(response.body)
                 if (jobDetails.error)
-                    throw jobDetails.error;
+                    throw jobDetails.error
 
-                jobId = jobDetails.id;
-                pid = jobDetails.pid;
+                jobId = jobDetails.id
+                pid = jobDetails.pid
 
-                break;
+                break
             } catch(ex){
-                console.log('unexpected response creating job');
-                console.log(response.body);
+                console.log('unexpected response creating job')
+                console.log(response.body)
                 return process.exit(1)
             }
         }
@@ -146,49 +146,49 @@ const process = require('process'),
 
         // handle -
         // cannot contact coordinator
-        // coordinate has no slaves
-        // slave not contactable
+        // coordinate has no workers
+        // worker not contactable
         // max jobs reached
         // coordinate not found
-        // no slaves match requests
-        // no slaves currently available
-        // slave accepted job but failed anyway
-        // slave X keeps failing job
+        // no workers match requests
+        // no workers currently available
+        // worker accepted job but failed anyway
+        // worker X keeps failing job
 
-        // loop to get job status from slave
-        let index = 0;
+        // loop to get job status from worker
+        let index = 0
         let interval = setInterval(async () => {
-            let status = null;
+            let status = null
             try {
-                let status = await httputils.downloadString(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs/${jobId}/${index}?pagesize=${settings.logPageSize}`);
-                status = JSON.parse(status.body);
-                index += status.log ? status.log.length : 0;
+                let status = await httputils.downloadString(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs/${jobId}/${index}?pagesize=${settings.logPageSize}`)
+                status = JSON.parse(status.body)
+                index += status.log ? status.log.length : 0
 
                 if(status.running){
                     if (status.log.length)
-                        console.log(status.log.join('\n'));
+                        console.log(status.log.join('\n'))
                 } else {
-                    await httputils.delete(`${settings.protocol}://${slaveHost}:${settings.port}/v1/jobs/${jobId}`);
-                    clearInterval(interval);
+                    await httputils.delete(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs/${jobId}`)
+                    clearInterval(interval)
 
                     if (status.failed){
-                        console.log(`Job failed`);
-                        return process.exit(1);
+                        console.log(`Job failed`)
+                        return process.exit(1)
                     }
 
-                    return console.log(`Job done, exiting.`);
+                    return console.log(`Job done, exiting.`)
                 }
             } catch(ex){
-                console.log(`error contacting agent`);
-                console.log(status);
-                console.log(ex);
-                process.exit(1);
+                console.log(`error contacting agent`)
+                console.log(status)
+                console.log(ex)
+                process.exit(1)
             }
-        }, settings.slavePollInterval);
+        }, settings.workerPollInterval)
 
     } catch (ex) {
-        console.log(ex);
-        process.exit(1);
+        console.log(ex)
+        process.exit(1)
     }
 })()
  

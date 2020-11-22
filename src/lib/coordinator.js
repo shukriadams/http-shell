@@ -3,23 +3,23 @@ var http = require('http'),
     bodyParser = require('body-parser'),
     Settings = require('./settings'),
     app = Express(),
-    slaves = {};
+    workers = {};
 
 (async function(){
 
     try {
 
         let settings = await Settings({
-                port: 8082,             // port to listen for incoming slave/client requests
-                slaveTimeout: 10000,    // millseconds. Slaves must update their availability. If a slave hasn't checked in after this time, it is marked as unavailable
-                slaveWhitelist : ''     // Will be converted to string array from comma-separated list. Allowed slave IPnrs. Use if you want to prevent rogue slaves.
+                port: 8082,             // port to listen for incoming worker/client requests
+                workerTimeout: 10000,    // millseconds. Workers must update their availability. If a worker hasn't checked in after this time, it is marked as unavailable
+                workerWhitelist : ''     // Will be converted to string array from comma-separated list. Allowed worker IPnrs. Use if you want to prevent rogue workers.
             }, [
                 '/etc/cibroker/coordinator.yml',
                 './coordinator.yml'
             ]);
         
         // convert comma-separated list to array, remove empties
-        settings.slaveWhitelist =  settings.slaveWhitelist.split(',').filter(i => i.trim().length > 0);
+        settings.workerWhitelist =  settings.workerWhitelist.split(',').filter(i => i.trim().length > 0);
 
         app.use(bodyParser.urlencoded({ extended: false }));
         app.use(bodyParser.json());
@@ -27,45 +27,45 @@ var http = require('http'),
     
     
         /**
-         * Handles a slave registering itself.
+         * Handles a worker registering itself.
          */
-        app.post('/v1/slaves/:name', async function(req, res){
+        app.post('/v1/workers/:name', async function(req, res){
             try {
                 let name = decodeURIComponent(req.params.name.trim()),
                     ip = req.connection.remoteAddress,
                     registerInterval = parseInt((req.query.registerInterval || '0').trim()) || 0,
                     tags =  decodeURIComponent(req.query.tags || '').split(','),
-                    slave = slaves[name];
+                    worker = workers[name];
                 
                 // remove empty tags, remote whitespace padding
                 tags = tags
                     .map(tag => tag.trim())
                     .filter(tag => tag.length > 0);
 
-                if (slave && slave.ip !== ip){
+                if (worker && worker.ip !== ip){
                     res.status(400);
-                    return res.json({ error : `Another slave has claimed the name ${name}` });
+                    return res.json({ error : `Another worker has claimed the name ${name}` });
                 }   
 
-                if (settings.slaveWhitelist.length && !settings.slaveWhitelist.includes(ip)){
-                    console.log(`Rejected slave registration from non-whitelisted ip ${ip} : ${settings.slaveWhitelist}`);
+                if (settings.workerWhitelist.length && !settings.workerWhitelist.includes(ip)){
+                    console.log(`Rejected worker registration from non-whitelisted ip ${ip} : ${settings.workerWhitelist}`);
                     res.status(400);
                     return res.json({ error : 'You IP is not permitted - add it to coordinator whitelist' });
                 }
 
-                const isNew = !slave;
-                slave = slave || {};
-                slave.ip = ip;
-                slave.tags = tags;
-                slave.registerInterval = registerInterval;
-                slave.lastContact = new Date();
+                const isNew = !worker;
+                worker = worker || {};
+                worker.ip = ip;
+                worker.tags = tags;
+                worker.registerInterval = registerInterval;
+                worker.lastContact = new Date();
                 
-                slaves[name] = slave;
+                workers[name] = worker;
         
                 if (isNew)
-                    console.log(`Slave ${name} registered @ ip ${ip}, tags : "${tags}"`);
+                    console.log(`Worker ${name} registered @ ip ${ip}, tags : "${tags}"`);
 
-                res.json({ message : 'Slave registered' });
+                res.json({ message : 'Worker registered' });
             } catch(ex){
                 console.log(ex);
                 res.status(500);
@@ -75,11 +75,11 @@ var http = require('http'),
         
     
         /**
-         * Gets a list of registered slaves
+         * Gets a list of registered workers
          */
-        app.get('/v1/slaves', async function(req, res){
+        app.get('/v1/workers', async function(req, res){
             try {
-                res.json(slaves);
+                res.json(workers);
             } catch(ex){
                 console.log(ex);
                 res.status(500);
@@ -91,20 +91,20 @@ var http = require('http'),
         /**
          * 
          */
-        app.delete('/v1/slaves/:id', async function(req, res){
+        app.delete('/v1/workers/:id', async function(req, res){
             try {
                 let name = req.params.name,
                     ip = req.connection.remoteAddress,
-                    slave = slaves[name];
+                    worker = workers[name];
     
-                if (!slave ||slave.ip !== ip){
+                if (!worker ||worker.ip !== ip){
                     res.status(404);
-                    return res.json({ error : `Slave not found, or ip mismatch` });
+                    return res.json({ error : `Worker not found, or ip mismatch` });
                 }
         
-                delete slaves[name];
+                delete workers[name];
     
-                console.log(`Slave ${id} deleted`);
+                console.log(`Worker ${id} deleted`);
                 res.json({});
             } catch(ex){
                 console.log(ex);
@@ -116,15 +116,15 @@ var http = require('http'),
 
         setInterval(async function(){
             try {
-                for (const name in slaves){
-                    let updateTime = new Date().getTime() - slaves[name].lastContact.getTime();
-                    if (updateTime > settings.slaveTimeout && updateTime > slaves[name].registerInterval * 2){ // double intervall for some buffer
-                        delete slaves[name];
-                        console.log(`Slave ${name} timed out, removing.`);
+                for (const name in workers){
+                    let updateTime = new Date().getTime() - workers[name].lastContact.getTime();
+                    if (updateTime > settings.workerTimeout && updateTime > workers[name].registerInterval * 2){ // double intervall for some buffer
+                        delete workers[name];
+                        console.log(`Worker ${name} timed out, removing.`);
                     }
                 }
             } catch(ex){
-                console.log('unexpected error in slave check', ex);
+                console.log('unexpected error in worker check', ex);
             }
         }, 500);
 
