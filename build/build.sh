@@ -2,24 +2,26 @@ set -e # fail on errors
 
   
 TARGET=linux
-while [ -n "$1" ]; do 
-    case "$1" in
-    --target)
-        TARGET="$2" shift;;
-    esac 
-    shift
+while getopts t: option
+do
+case "${option}"
+in
+    t) TARGET=${OPTARG};;
+esac
 done
 
 if [ $TARGET == "linux" ]; then
-    pkg ./../src/. --targets node10-linux-x64 --output ./linux64/buildbroker 
+    pkg ./../src/. --targets node10-linux-x64 --output ./linux64/buildbroker
+        # run app and ensure exit code was 0
+    ./linux64/buildbroker --version 
 fi
 
 if [ $TARGET == "windows" ]; then
     pkg ./../src/. --targets node10-windows-x64 --output ./win64/buildbroker.exe 
+    # run app and ensure exit code was 0
+    ./win64/buildbroker --version 
 fi
 
-# run app and ensure exit code was 0
-./build/buildbroker --version 
 if [ $? -eq 0 ]
 then
   echo "App built"

@@ -1,6 +1,6 @@
 ## setup
 
-    npm install -g pkg
+    npm install -g pkg@4.4.9
 
 ## build
 
