@@ -11,13 +11,13 @@ esac
 done
 
 if [ $TARGET == "linux" ]; then
-    pkg ./../src/. --targets node10-linux-x64 --output ./linux64/buildbroker
+    $(npm bin)/pkg --targets node10-linux-x64 --output ./linux64/buildbroker
         # run app and ensure exit code was 0
     ./linux64/buildbroker --version 
 fi
 
 if [ $TARGET == "windows" ]; then
-    pkg ./../src/. --targets node10-windows-x64 --output ./win64/buildbroker.exe 
+    $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output ./win64/buildbroker.exe 
     # run app and ensure exit code was 0
     ./win64/buildbroker --version 
 fi
