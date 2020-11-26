@@ -31,7 +31,7 @@ fi
 # get current revision the checkout is on
 currentRevision=$(git rev-parse --verify HEAD) 
 # get tag on this revision
-tag=$(git describe --exact-match $currentRevision)
+tag=$(git describe --contains $currentRevision)
 # ensure current revision is tagged
 if [ -z "$tag" ]; then
     echo "current revision has no tag on it, cannot build";
