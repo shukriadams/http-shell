@@ -28,6 +28,9 @@ if [ -z "$token" ]; then
     exit 1;
 fi
 
+# force get tags, these don't always seem to be pulled by jenkins
+git fetch --all --tags
+
 # get current revision the checkout is on
 currentRevision=$(git rev-parse --verify HEAD) 
 # get tag on this revision
