@@ -4,23 +4,24 @@
  * overrideFiles : String array of paths to YML files that can be used to override settings. The first existing match wins
  * 
  */
-const minimist = require('minimist'),
+const process = require('process'), 
+    minimist = require('minimist'),
     fs = require('fs-extra'),
-    yaml = require('js-yaml');
+    yaml = require('js-yaml')
 
 module.exports = async function(defaults = {}, overrideFiles = []){
     let settingsPath = null
 
-    for (const overrideFile of overrideFiles){
+    for (const overrideFile of overrideFiles)
         if (await fs.exists(overrideFile)){
             settingsPath = overrideFile
             break
         }
-    }
 
     // allow yml to override defaults
     if (settingsPath){
         let rawSettings = await fs.readFile(settingsPath, 'utf8')
+
         try {
             defaults = Object.assign(defaults, yaml.safeLoad(rawSettings))
         } catch(ex){
@@ -30,6 +31,7 @@ module.exports = async function(defaults = {}, overrideFiles = []){
 
     // allow argv to override default and yml
     let argv = minimist(process.argv.slice(2))
+
     for (let property in argv)
         defaults[property] = argv[property]
 

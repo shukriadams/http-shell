@@ -1,4 +1,4 @@
-# based on script from https://gist.github.com/stefanbuck/ce788fee19ab6eb0b4447a85fc99f447
+# borrows generously from https://gist.github.com/stefanbuck/ce788fee19ab6eb0b4447a85fc99f447
 
 set -e # fail on errors
 
@@ -54,24 +54,25 @@ curl -o /dev/null -sH "$token" $GH_REPO || { echo "error - token validation fail
 # Read asset tags.
 response=$(curl -sH "$token" $GH_TAGS)
 
+
 # Get ID of the asset based on given filename.
 eval $(echo "$response" | grep -m 1 "id.:" | grep -w id | tr : = | tr -cd '[[:alnum:]]=')
 [ "$id" ] || { echo "Error: Failed to get release id for tag: $tag"; echo "$response" | awk 'length($0)<100' >&2; exit 1; }
 
 if [ $target == "linux" ]; then
-    $(npm bin)/pkg --targets node10-linux-x64 --output ./linux64/buildbroker
+    $(npm bin)/pkg --targets node10-linux-x64 --output ./linux64/http-shell
 
     filename=NOTSET
     # run app and ensure exit code was 0
-    ./linux64/buildbroker --version 
+    ./linux64/http-shell --version 
 fi
 
 if [ $target == "windows" ]; then
-    $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output ./win64/buildbroker.exe 
+    $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output ./win64/http-shell.exe 
     
-    filename=./win64/buildbroker.exe
+    filename=./win64/http-shell.exe
     # run app and ensure exit code was 0
-    ./win64/buildbroker --version 
+    ./win64/http-shell --version 
 fi
 
 if [ ! $? -eq 0 ]; then

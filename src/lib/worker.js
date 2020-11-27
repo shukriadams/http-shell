@@ -21,6 +21,7 @@ let http = require('http'),
         coordinator : null, // example : 127.0.0.1:8082,
         registerInterval : 5000,
         maxJobs : 1,
+        verbose: false,
         name : os.hostname,
         tags: '',
         port : 8083
@@ -102,8 +103,9 @@ let http = require('http'),
                             data = split(data)
                             jobs[id].log = jobs[id].log.concat(data)
         
-                            for(const item of data)
-                                console.log(item)
+                            if (settings.verbose)
+                                for(const item of data)
+                                    console.log(item)
         
                         }, 
                         onStderr : (data)=>{
@@ -262,8 +264,10 @@ let http = require('http'),
     console.log(`Worker : listening on port ${settings.port}`)
     if (!settings.coordinator)
         console.log(`Worker : coordinator not set, accepting direct client connections`)
-    else
+    else{
+        console.log(`Attached to coordinator @ ${settings.coordinator}`)
         console.log(`Worker : ip is ${address.ip()} - if coordinator has whitelisting enabled, add this to whitelist.`)
+    }
 
 })()
 

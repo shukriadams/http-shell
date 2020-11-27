@@ -19,7 +19,7 @@ const process = require('process'),
             coordinatorPollInterval: 1000,
             logPageSize: 100,
             protocol: 'http',
-            worker : null,  // // example : 'localhost',
+            worker : 'localhost',  // default is localhost
             coordinator : null, // example : 'localhost:8082',
             maxAttempts: 10,
             jobs : {}
@@ -27,6 +27,7 @@ const process = require('process'),
             '/etc/cibroker/client.yml',
             './client.yml'
         ])
+       
 
         // tags can be passed in as comma-separated list, break to array
         settings.tags = settings.tags ? settings.tags.split(',') : []
@@ -138,7 +139,7 @@ const process = require('process'),
                 workerHost = settings.worker
             }
 
-            console.log(`Attempting to send command to $targetUrl ${workerHost}`)
+            console.log(`Attempting to send command to --worker @ host ${workerHost}`)
             let response = await httputils.postUrlString(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs`, `command=${encodeURIComponent(settings.command)}`)
             try {
                 let jobDetails =JSON.parse(response.body)
