@@ -1,3 +1,5 @@
+Execute shell commands on remote systems using HTTP. Calls can be routed to workers by passing them to a coordinator.
+
 ## setup
 
     npm install -g pkg@4.4.9
