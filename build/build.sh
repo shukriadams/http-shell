@@ -2,7 +2,6 @@
 
 set -e # fail on errors
 
-
 # capture all arguments passed in, these is anything starting with --  
 while [ $# -gt 0 ]; do
     if [[ $1 == *"--"* ]]; then
@@ -13,28 +12,33 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$target" = "" ]; then
-    echo "ERROR : no --target set - allowed values are linux|windows"
+    echo "ERROR : --target not set"
     exit 1;
 fi
 
-if [ "$target" = "linux" ]; then
-    $(npm bin)/pkg --targets node10-linux-x64 --output ./linux64/http-shell
+if [ "$target" = "linux64" ]; then
+    filename=./linux64/http-shell
+    name="linux-64"
 
-    filename=NOTSET
+    $(npm bin)/pkg ./../src/. --targets node10-linux-x64 --output $filename
+
     # run app and ensure exit code was 0
-    ./linux64/http-shell --version 
-fi
-
-if [ "$target" = "windows" ]; then
-    $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output ./win64/http-shell.exe 
-    
+    (${filename} --version )
+elif [ "$target" = "win64" ]; then
     filename=./win64/http-shell.exe
+    name="win-64"
+
+    $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output $filename
+    
     # run app and ensure exit code was 0
-    ./win64/http-shell --version 
+    ($filename --version)
+else
+    echo "ERROR : ${target} is not a valid --target, allowed values are [linux64|win64]"
+    exit 1;
 fi
 
 if [ ! $? -eq 0 ]; then
-    echo "App test failed : " >&2
+    echo "ERROR : App test failed " >&2
     exit 1
 fi
 
@@ -60,20 +64,20 @@ if [ -z "$token" ]; then
     exit 1;
 fi
 
-
 # force get tags, these don't always seem to be pulled by jenkins
 git fetch --all --tags
 
 # get current revision the checkout is on
 currentRevision=$(git rev-parse --verify HEAD) 
+
 # get tag on this revision
 tag=$(git describe --contains $currentRevision)
+
 # ensure current revision is tagged
 if [ -z "$tag" ]; then
-    echo "current revision has no tag on it, cannot upload";
+    echo "ERROR : current revision has no tag on it, cannot upload";
     exit 1;
 fi
-
 
 GH_REPO="https://api.github.com/repos/$owner/$repo"
 GH_TAGS="$GH_REPO/releases/tags/$tag"
@@ -82,19 +86,17 @@ WGET_ARGS="--content-disposition --auth-no-challenge --no-cookie"
 CURL_ARGS="-LJO#"
 
 # Validate token.
-curl -o /dev/null -sH "$token" $GH_REPO || { echo "error - token validation failed";  exit 1; }
+curl -o /dev/null -sH "$token" $GH_REPO || { echo "Error : token validation failed";  exit 1; }
 
 # Read asset tags.
 response=$(curl -sH "$token" $GH_TAGS)
 
-
 # Get ID of the asset based on given filename.
 eval $(echo "$response" | grep -m 1 "id.:" | grep -w id | tr : = | tr -cd '[[:alnum:]]=')
-[ "$id" ] || { echo "Error: Failed to get release id for tag: $tag"; echo "$response" | awk 'length($0)<100' >&2; exit 1; }
-
-
+[ "$id" ] || { echo "Error : Failed to get release id for tag: $tag"; echo "$response" | awk 'length($0)<100' >&2; exit 1; }
 
 # upload file to github
-GH_ASSET="https://uploads.github.com/repos/$owner/$repo/releases/$id/assets?name=$(basename $filename)"
+GH_ASSET="https://uploads.github.com/repos/$owner/$repo/releases/$id/assets?name=$(basename $name)"
 curl --data-binary @"$filename" -H "Authorization: token $token" -H "Content-Type: application/octet-stream" $GH_ASSET
+
 echo "App uploaded"

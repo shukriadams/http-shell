@@ -10,6 +10,8 @@ coordinator.yml
 src/client.yml
 /client/settings.yml
 /src/build/
-/build/build/
+/build/linux64/
+/build/win64/
 /build/node_modules/
 /build/package-lock.json
+src/package-lock.json

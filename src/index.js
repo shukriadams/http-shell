@@ -6,7 +6,7 @@ const path = require('path'),
 
 if (argv.version){
     const package = jsonfile.readFileSync(path.join( __dirname, '/package.json'))
-    console.log(`buildbroker, version ${package.version}`)
+    console.log(`http-shell, version ${package.version}`)
     process.exit(0)
 }
 

@@ -1,5 +1,5 @@
 {
-    "name": "buildbroker-build",
+    "name": "http-shell-build",
     "version": "0.0.1",
     "license": "MIT",
     "dependencies": {
