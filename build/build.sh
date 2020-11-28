@@ -18,7 +18,7 @@ fi
 
 if [ "$target" = "linux64" ]; then
     filename=./linux64/http-shell
-    name="linux-64"
+    name="htpp-shell_linux64"
 
     $(npm bin)/pkg ./../src/. --targets node10-linux-x64 --output $filename
 
@@ -26,7 +26,7 @@ if [ "$target" = "linux64" ]; then
     (${filename} --version )
 elif [ "$target" = "win64" ]; then
     filename=./win64/http-shell.exe
-    name="win-64"
+    name="http-shell_win64.exe"
 
     $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output $filename
     
