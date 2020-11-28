@@ -37,7 +37,7 @@ const http = require('http'),
                     tags =  decodeURIComponent(req.query.tags || '').split(','),
                     worker = workers[name]
                 
-                // remove empty tags, remote whitespace padding
+                // remove whitespace padding and empty tags
                 tags = tags
                     .map(tag => tag.trim())
                     .filter(tag => tag.length > 0)

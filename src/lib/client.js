@@ -173,6 +173,7 @@ const process = require('process'),
         let index = 0,
             interval = setInterval(async () => {
                 let status = null
+                
                 try {
                     status = await httputils.downloadString(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs/${jobId}/${index}?pagesize=${settings.logPageSize}`)
                     status = JSON.parse(status.body)
@@ -189,8 +190,6 @@ const process = require('process'),
                             console.log(`Job failed`)
                             return process.exit(1)
                         }
-
-                        return console.log(`Job done, exiting.`)
                     }
                 } catch(ex){
                     console.log(`error contacting agent`)
