@@ -9,4 +9,4 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: builds
-        run: cd build && bash ./build.sh --target linux64 --upload 1
+        run: cd src && npm install && cd ../build && npm install && bash ./build.sh --target linux64 --upload 1
