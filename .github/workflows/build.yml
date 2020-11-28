@@ -9,6 +9,6 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: builds
-        run: cd src && npm install && cd ../build && npm install && bash ./build.sh --target linux64 --upload 1 --owner shukriadams --repo http-shell --token %ACCESS_TOKEN%
+        run: cd src && npm install && cd ../build && npm install && bash ./build.sh --target linux64 --upload 1 --owner shukriadams --repo http-shell --token $ACCESS_TOKEN
         env:
             ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
