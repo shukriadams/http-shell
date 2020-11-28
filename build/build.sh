@@ -12,6 +12,38 @@ while [ $# -gt 0 ]; do
     shift
 done
 
+if [ "$target" = "" ]; then
+    echo "ERROR : no --target set - allowed values are linux|windows"
+    exit 1;
+fi
+
+if [ "$target" = "linux" ]; then
+    $(npm bin)/pkg --targets node10-linux-x64 --output ./linux64/http-shell
+
+    filename=NOTSET
+    # run app and ensure exit code was 0
+    ./linux64/http-shell --version 
+fi
+
+if [ "$target" = "windows" ]; then
+    $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output ./win64/http-shell.exe 
+    
+    filename=./win64/http-shell.exe
+    # run app and ensure exit code was 0
+    ./win64/http-shell --version 
+fi
+
+if [ ! $? -eq 0 ]; then
+    echo "App test failed : " >&2
+    exit 1
+fi
+
+echo "App built"
+
+if [ ! "$upload" = 1 ]; then
+    exit 0
+fi
+
 # ensure required arguments
 if [ -z "$owner" ]; then
     echo "--owner : github repo owner is required";
@@ -28,6 +60,7 @@ if [ -z "$token" ]; then
     exit 1;
 fi
 
+
 # force get tags, these don't always seem to be pulled by jenkins
 git fetch --all --tags
 
@@ -37,7 +70,7 @@ currentRevision=$(git rev-parse --verify HEAD)
 tag=$(git describe --contains $currentRevision)
 # ensure current revision is tagged
 if [ -z "$tag" ]; then
-    echo "current revision has no tag on it, cannot build";
+    echo "current revision has no tag on it, cannot upload";
     exit 1;
 fi
 
@@ -59,31 +92,9 @@ response=$(curl -sH "$token" $GH_TAGS)
 eval $(echo "$response" | grep -m 1 "id.:" | grep -w id | tr : = | tr -cd '[[:alnum:]]=')
 [ "$id" ] || { echo "Error: Failed to get release id for tag: $tag"; echo "$response" | awk 'length($0)<100' >&2; exit 1; }
 
-if [ $target == "linux" ]; then
-    $(npm bin)/pkg --targets node10-linux-x64 --output ./linux64/http-shell
 
-    filename=NOTSET
-    # run app and ensure exit code was 0
-    ./linux64/http-shell --version 
-fi
-
-if [ $target == "windows" ]; then
-    $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output ./win64/http-shell.exe 
-    
-    filename=./win64/http-shell.exe
-    # run app and ensure exit code was 0
-    ./win64/http-shell --version 
-fi
-
-if [ ! $? -eq 0 ]; then
-    echo "App build failed : " >&2
-    exit 1
-fi
 
 # upload file to github
 GH_ASSET="https://uploads.github.com/repos/$owner/$repo/releases/$id/assets?name=$(basename $filename)"
 curl --data-binary @"$filename" -H "Authorization: token $token" -H "Content-Type: application/octet-stream" $GH_ASSET
-
-
-echo "App built"
-exit 0
+echo "App uploaded"

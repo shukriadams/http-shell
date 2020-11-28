@@ -11,3 +11,5 @@ src/client.yml
 /client/settings.yml
 /src/build/
 /build/build/
+/build/node_modules/
+/build/package-lock.json
