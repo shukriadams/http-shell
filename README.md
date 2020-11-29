@@ -1,4 +1,4 @@
-Execute shell commands on remote systems using HTTP. Calls can be routed to workers by passing them to a coordinator.
+Execute shell commands on remote systems using HTTP. A central coordinator can be used to chain workers togther into a high-availability mesh.
 
 ## setup
 
