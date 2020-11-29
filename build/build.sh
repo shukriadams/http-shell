@@ -18,7 +18,7 @@ fi
 
 if [ "$target" = "linux64" ]; then
     filename=./linux64/http-shell
-    name="htpp-shell_linux64"
+    name="http-shell_linux64"
 
     $(npm bin)/pkg ./../src/. --targets node10-linux-x64 --output $filename
 
