@@ -1,4 +1,5 @@
 # borrows generously from https://gist.github.com/stefanbuck/ce788fee19ab6eb0b4447a85fc99f447
+# Note : on linux systems this script must be called with bash, it will not work with sh 
 
 set -e # fail on errors
 
@@ -16,6 +17,8 @@ if [ "$target" = "" ]; then
     exit 1;
 fi
 
+# Call the node package pkg directly, on build servers it is not installed globally, mainly because on Windows Jenkins agents
+# global npm packages are a pain to set up, and we want to minimize changing the global state of agents.
 if [ "$target" = "linux64" ]; then
     filename=./linux64/http-shell
     name="http-shell_linux64"
