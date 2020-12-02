@@ -3,7 +3,7 @@
 
 set -e # fail on errors
 
-# capture all arguments passed in, these is anything starting with --  
+# capture all arguments passed in (anything starting with --)
 while [ $# -gt 0 ]; do
     if [[ $1 == *"--"* ]]; then
         param="${1/--/}"
