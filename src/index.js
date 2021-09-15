@@ -2,6 +2,7 @@ const path = require('path'),
     jsonfile = require('jsonfile'),
     process = require('process'),
     minimist = require('minimist'),
+    allowedModes = ['client', 'worker', 'coordinator'],
     argv = minimist(process.argv.slice(2))
 
 if (argv.version){
@@ -10,9 +11,16 @@ if (argv.version){
     process.exit(0)
 }
 
-const mode = argv.mode
+let mode = argv.mode
+
+// set default mode to client
 if (!mode){
-    console.log('--mode required. Allowed values are [client|worker|coordinator]')
+    mode = 'client'
+    console.log('--mode not set, defaulting to client')
+}
+
+if (!allowedModes.includes(mode)){
+    console.log('invalid --mode. Allowed values are [client|worker|coordinator]')
     process.exit(1)
 }
 

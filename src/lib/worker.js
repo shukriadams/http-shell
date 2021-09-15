@@ -96,10 +96,11 @@ let http = require('http'),
             let command = decodeURIComponent(req.body.command);
 
             // wrap in anon so we can await it but let calling thread continue immediately
-            (async function(){
+            (async ()=>{
                 try {
+                    // run the actual job here
                     await exec.sh({ cmd : command, 
-                        onStdout : function(data){
+                        onStdout : data => {
                             data = split(data)
                             jobs[id].log = jobs[id].log.concat(data)
         
@@ -108,10 +109,10 @@ let http = require('http'),
                                     console.log(item)
         
                         }, 
-                        onStderr : (data)=>{
+                        onStderr : data =>{
                             console.log('ERR', data)
                         },
-                        onStart : function(args){
+                        onStart : args => {
                             console.log(`Job ${id} created, pid is ${args.pid}`)
                             console.log(`Command : ${req.body.command}`)
 
@@ -123,10 +124,10 @@ let http = require('http'),
                                 jobCount : Object.keys(jobs).length 
                             })
                         },
-                        onEnd : function(result){
+                        onEnd : result => {
                             jobs[id].isRunning = false
                             jobs[id].code = result.code
-                            jobs[id].passed = result.passed
+                            jobs[id].passed = result.code === 0
                         }
                     })
 
@@ -137,8 +138,6 @@ let http = require('http'),
                     console.log(`Error :  ${ex}`)
                 }
             })()
-            
-
     
         } catch(ex){
             console.log(ex)

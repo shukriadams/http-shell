@@ -185,9 +185,9 @@ const process = require('process'),
                     } else {
                         await httputils.delete(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs/${jobId}`)
                         clearInterval(interval)
-
+                        
                         if (!status.passed){
-                            console.log(`Job failed`)
+                            console.log(`Job failed with code ${status.code}`)
                             return process.exit(1)
                         }
                     }
