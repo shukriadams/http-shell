@@ -53,11 +53,12 @@ const process = require('process'),
             if (pid){
                 console.log(`${settings.protocol}://${workerHost}:${settings.port}/v1/pkill/${pid}`)
                 console.log(`Send remote pkill for "${pid}"`)
-                
-                let exec = require('child_process')
-                exec.execSync(`curl ${settings.protocol}://${workerHost}:${settings.port}/v1/pkill/${pid}`, function (error, stderr) {
-                    // we don't care about errors
-                })
+                (function(){
+                    let exec = require('child_process')
+                    exec.execSync(`curl ${settings.protocol}://${workerHost}:${settings.port}/v1/pkill/${pid}`, function (error, stderr) {
+                        // we don't care about errors
+                    })
+                })()
             }
 
             process.exit(1)
