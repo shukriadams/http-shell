@@ -140,7 +140,13 @@ const process = require('process'),
             }
 
             console.log(`Attempting to send command to --worker @ host ${workerHost}`)
-            let response = await httputils.postUrlString(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs`, `command=${encodeURIComponent(settings.command)}`)
+            
+            // Send the client pid to allow checking if we're terminated unexpectedly
+            body = `command=${encodeURIComponent(settings.command)}`
+            if (workerHost === 'localhost')
+                body += `&clientPid=${process.pid}`
+
+            let response = await httputils.postUrlString(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs`, body)
             try {
                 let jobDetails =JSON.parse(response.body)
                 if (jobDetails.error)
@@ -151,6 +157,7 @@ const process = require('process'),
 
                 break
             } catch(ex){
+                console.log(ex)
                 console.log('unexpected response creating job')
                 console.log(response.body)
                 return process.exit(1)
