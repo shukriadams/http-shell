@@ -278,10 +278,6 @@ let http = require('http'),
     setInterval(async function() {
         for (const [id, job] of Object.entries(jobs)) {
 
-            // If we have no associated 
-            if (job.clientPid == null)
-                continue
-
             // If the job already stopped running then we ignore it
             if (!job.isRunning)
                 continue
@@ -290,8 +286,12 @@ let http = require('http'),
             // This can happen if the job failed to start in the first place
             if (job.pid == null)
                 continue
+
+            // If we have no associated client process, we have nothing to monitor
+            if (job.clientPid == null)
+                continue
             
-            // If we're not monitoring a client process, 
+            // If the client is still running then there is nothing to do
             if (isRunning(job.clientPid))
                 continue
 
