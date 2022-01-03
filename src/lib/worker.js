@@ -3,7 +3,8 @@ let http = require('http'),
     exec = require('madscience-node-exec'),
     bodyParser = require('body-parser'),
     process = require('process'),
-    httputils = require('madscience-httputils');
+    httputils = require('madscience-httputils'),
+    isRunning = require('is-running'),
     address = require('address'),
     fs = require('fs-extra'),
     urljoin = require('url-join'),
@@ -24,7 +25,8 @@ let http = require('http'),
         verbose: false,
         name : os.hostname,
         tags: '',
-        port : 8083
+        port : 8083,
+        cancelJobsInterval: 500,
     }, [
         '/etc/cibroker/worker.yml',
         './worker.yml'
@@ -86,11 +88,13 @@ let http = require('http'),
     
             const id = cuid()
             jobs[id] = {
+                pid : null,
                 log : [],
                 created: new Date,
                 passed : false,
                 code : null,
-                isRunning : true
+                isRunning : true,
+                clientPid: req.body.clientPid == undefined ? null : parseInt(req.body.clientPid)
             }
 
             let command = decodeURIComponent(req.body.command);
@@ -115,6 +119,8 @@ let http = require('http'),
                         onStart : args => {
                             console.log(`Job ${id} created, pid is ${args.pid}`)
                             console.log(`Command : ${req.body.command}`)
+
+                            jobs[id].pid = args.pid
 
                             res.json({
                                 id,
@@ -146,6 +152,19 @@ let http = require('http'),
         }
     })
     
+    async function killProcess(pid) {
+        try {
+            if (process.platform === 'win32')
+                await exec.spawn({ cmd : 'Taskkill', args : [ '\/PID', pid, '\/f', '\/t']})
+            else if (process.platform === 'linux')
+                await exec.sh({ cmd: 'kill', args : ['-9', pid] })
+            else 
+                console.log('Process kill not supported on this OS.')
+
+        } catch(ex){
+            console.log(`failed to kill process ${pid} : ${ex} `)
+        }
+    }
 
     /**
      * Kills a job with the given pid
@@ -159,16 +178,12 @@ let http = require('http'),
         console.log(`Received pkill order for "${pid}"`)
         res.end('pkill received')
 
-        try {
-            if (process.platform === 'win32')
-                await exec.spawn({ cmd : 'Taskkill', args : [ '\/PID', pid, '\/f', '\/t']})
-            else if (process.platform === 'linux')
-                await exec.sh({ cmd: 'kill', args : ['-9', pid] })
-            else 
-                console.log('Process kill not supported on this OS.')
+        for (const [id, job] of Object.entries(jobs)) {
+            if (job.pid != pid)
+                continue
 
-        } catch(ex){
-            console.log(`failed to kill process ${req.params.pid} : ${ex} `)
+            job.isRunning = false
+            await killProcess(job.pid)
         }
     })
     
@@ -257,6 +272,33 @@ let http = require('http'),
         // todo : cleanup dead jobs that clients have abandoned
 
     }, settings.registerInterval)
+
+    // Periodically check if clients are still running.
+    // If a client is no longer running but it's job is, then we terminate that job
+    setInterval(async function() {
+        for (const [id, job] of Object.entries(jobs)) {
+
+            // If the job already stopped running then we ignore it
+            if (!job.isRunning)
+                continue
+
+            // If we don't have a pid for the job, we can't terminate it anyway
+            // This can happen if the job failed to start in the first place
+            if (job.pid == null)
+                continue
+
+            // If we have no associated client process, we have nothing to monitor
+            if (job.clientPid == null)
+                continue
+            
+            // If the client is still running then there is nothing to do
+            if (isRunning(job.clientPid))
+                continue
+
+            job.isRunning = false
+            await killProcess(job.pid)
+        }
+    }, settings.cancelJobsInterval)
     
     const server = http.createServer(app)
     server.listen(settings.port)
