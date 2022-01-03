@@ -20,6 +20,7 @@
         "express": "4.16.3",
         "body-parser": "1.18.3",
         "address": "1.1.2",
+        "is-running": "2.1.0",
         "timebelt": "https://github.com/shukriadams/timebelt.git#0.1.4",
         "madscience-httputils": "https://github.com/shukriadams/node-httpUtils.git#0.0.3",
         "madscience-node-exec": "https://github.com/shukriadams/node-exec.git#0.0.5"
