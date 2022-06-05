@@ -1,4 +1,4 @@
-Execute shell commands on remote systems using HTTP. A central coordinator can be used to chain workers togther into a high-availability mesh. http-shell is heavily inspired by Jenkin's agent system, and tries to achieve a similar result, in the simplest possible way possible.
+Execute shell commands on remote systems using HTTP. A central coordinator can be used to chain workers togther into a high-availability mesh. 
 
 ## Download
 
