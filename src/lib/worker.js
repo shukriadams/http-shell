@@ -3,13 +3,16 @@ let http = require('http'),
     exec = require('madscience-node-exec'),
     bodyParser = require('body-parser'),
     process = require('process'),
-    httputils = require('madscience-httputils');
-    address = require('address'),
-    fs = require('fs-extra'),
+    pidusage = require('pidusage'),
+    httputils = require('madscience-httputils'),
     urljoin = require('url-join'),
+    fs = require('fs-extra'),
+    address = require('address'),
     cuid = require('cuid'),
     os = require('os'),
+    winstonWrapper = require('winston-wrapper'),
     Settings = require('./settings'),
+    
     app = Express(),
     _registered = false,
     timebelt = require('timebelt'),
@@ -22,6 +25,11 @@ let http = require('http'),
         registerInterval : 5000,
         maxJobs : 1,
         verbose: false,
+        // if keep alive is greater than zero, unchecked jobs older than this in minutes will be treated
+        // as abandoned and automatically killed
+        keepAlive: 0,
+        logDir : './logs',
+        logLevel : 'info',
         name : os.hostname,
         tags: '',
         port : 8083
@@ -29,6 +37,10 @@ let http = require('http'),
         '/etc/cibroker/worker.yml',
         './worker.yml'
     ])
+
+    await fs.ensureDir(settings.logDir)
+
+    const _log = winstonWrapper.new(settings.logDir, settings.logLevel).log
 
     if (settings.coordinator && !settings.coordinator.startsWith('http://'))    
         settings.coordinator = `http://${settings.coordinator}`
@@ -53,13 +65,26 @@ let http = require('http'),
         await exec.sh({ cmd : 'ls .'})
     } catch (ex){
         if (ex.code === 'ENOENT'){
-            console.log('bash not found - please install and add to system PATH if applicable.')
+            _log.warn('bash not found - please install and add to system PATH if applicable.')
             return process.exit(1)
         }
         else
             throw ex
     }
-        
+
+    async function killProcess(pid){
+
+        if (typeof pid === 'string')
+            pid = parseInt(pid)
+
+        if (process.platform === 'win32')
+            await exec.spawn({ cmd : 'Taskkill', args : [ '\/PID', pid, '\/f', '\/t']})
+        else if (process.platform === 'linux')
+            await exec.sh({ cmd: `kill -9 ${pid}` })
+        else 
+            throw 'http-shell does not support process kill on this OS.'
+    }
+
 
     /**
      * Creates a job
@@ -75,8 +100,8 @@ let http = require('http'),
 
             // prevent running too many jobs at once
             let running = 0
-            for (const name in jobs)
-                if (jobs[name].isRunning)
+            for (const jobId in jobs)
+                if (jobs[jobId].isRunning)
                     running ++
 
             if (running >= settings.maxJobs){
@@ -87,9 +112,12 @@ let http = require('http'),
             const id = cuid()
             jobs[id] = {
                 log : [],
+                pid: null,
                 created: new Date,
+                checked: new Date,
                 passed : false,
                 code : null,
+                isKilled: false,
                 isRunning : true
             }
 
@@ -102,19 +130,23 @@ let http = require('http'),
                     await exec.sh({ cmd : command, 
                         onStdout : data => {
                             data = split(data)
-                            jobs[id].log = jobs[id].log.concat(data)
+    
+                            if (jobs[id])
+                                jobs[id].log = jobs[id].log.concat(data)
         
                             if (settings.verbose)
                                 for(const item of data)
-                                    console.log(item)
+                                    _log.info(item)
         
                         }, 
                         onStderr : data =>{
-                            console.log('ERR', data)
+                            _log.error('ERR', data)
                         },
                         onStart : args => {
-                            console.log(`Job ${id} created, pid is ${args.pid}`)
-                            console.log(`Command : ${req.body.command}`)
+                            _log.info(`Job ${id} created, pid is ${args.pid}`)
+                            _log.info(`Command : ${req.body.command}`)
+
+                            jobs[id].pid = args.pid
 
                             res.json({
                                 id,
@@ -132,15 +164,17 @@ let http = require('http'),
                     })
 
                 } catch(ex){
-                    jobs[id].isRunning = false
-                    jobs[id].code = 1
-                    jobs[id].log = jobs[id].log.concat(split(JSON.stringify(ex)))
-                    console.log(`Error :  ${ex}`)
+                    if (jobs[id]){
+                        jobs[id].isRunning = false
+                        jobs[id].code = 1
+                        jobs[id].log = jobs[id].log.concat(split(JSON.stringify(ex)))
+                    }
+                    _log.error(`Error :  ${ex}`)
                 }
             })()
     
         } catch(ex){
-            console.log(ex)
+            _log.error(ex)
             res.status(500)
             res.json({ error : ex.toString() })
         }
@@ -150,25 +184,21 @@ let http = require('http'),
     /**
      * Kills a job with the given pid
      */
-    app.get('/v1/pkill/:pid', async function(req, res){
-        let pid = parseInt(req.params.pid)
+    app.get('/v1/pkill/:jobid', async function(req, res){
+        let job = jobs[req.params.jobid]
         
-        if (isNaN(pid))
-            pid = req.params.pid.trim()
+        if (!job){
+            res.status(404)
+            return res.json({error : `Job ${req.params.jobid} not found`})
+        }
 
-        console.log(`Received pkill order for "${pid}"`)
-        res.end('pkill received')
+        _log.info(`Received pkill order for job id "${req.params.jobid}", process id "${job.pid}"`)
+        res.end('pkill received, process will be terminated')
 
         try {
-            if (process.platform === 'win32')
-                await exec.spawn({ cmd : 'Taskkill', args : [ '\/PID', pid, '\/f', '\/t']})
-            else if (process.platform === 'linux')
-                await exec.sh({ cmd: 'kill', args : ['-9', pid] })
-            else 
-                console.log('Process kill not supported on this OS.')
-
-        } catch(ex){
-            console.log(`failed to kill process ${req.params.pid} : ${ex} `)
+            await killProcess(pid)
+        } catch(ex) {
+            _log.error(`failed to kill process for job ${req.params.jobid} : ${ex}`)
         }
     })
     
@@ -188,6 +218,8 @@ let http = require('http'),
                 return res.json({error : `Job ${id} not found`})
             }
     
+            job.checked = new Date()
+
             res.json({
                 passed: job.passed,
                 code : job.code,
@@ -196,7 +228,7 @@ let http = require('http'),
             })
     
         } catch(ex){
-            console.log(ex)
+            _log.error(ex)
             res.status(500)
             res.json({error : ex.toString()})
         }
@@ -217,10 +249,10 @@ let http = require('http'),
             }
     
             delete jobs[id]
-            console.log(`Job ${id} deleted`)
+            _log.info(`Job ${id} deleted`)
             res.json({message : 'Job deleted '})
         } catch(ex){
-            console.log(ex)
+            _log.error(ex)
             res.status(500)
             res.json({ error : ex.toString() })
         }
@@ -241,20 +273,64 @@ let http = require('http'),
                     throw result.error
     
                 if (!_registered)
-                    console.log(`Registered with coordinator @ ${settings.coordinator}`)
+                    _log.info(`Registered with coordinator @ ${settings.coordinator}`)
     
                 _registered = true
-                // harden this!
+                // todo : harden this!
             } catch(ex){
                 if (ex.code === 'ECONNREFUSED')
-                    console.log(`${timebelt.toShortTime(new Date())} - coordinator @ ${settings.coordinator} unreachable`)
+                    _log.warn(`${timebelt.toShortTime(new Date())} - coordinator @ ${settings.coordinator} unreachable`)
                 else {
-                    console.log('failed to register with coordinator')
-                    console.log(ex)
+                    _log.error('failed to register with coordinator')
+                    _log.error(ex)
                 }
             }
         }
-        // todo : cleanup dead jobs that clients have abandoned
+
+        // clean out jobs for processes that got killed on the OS level without being caught by the normal run exception handler,
+        // this shouldn't happen
+        for (const jobId in jobs){
+            
+            const job = jobs[jobId]
+
+            if (!job)
+                continue
+
+            if (!job.isRunning)
+                continue
+
+            try {
+                 await pidusage(job.pid)
+            }catch(ex){
+                job.isRunning = false
+                job.code = 1
+                job.passed = false
+                _log.error(`Failed to get pid info for job "${jobId}", treating as killed by OS, abandoning job : ${ex}`)
+            }
+        }
+
+        // cleanup dead jobs that clients have abandoned
+        if (settings.keepAlive > 0)
+            for (const jobId in jobs){
+                const job = jobs[jobId]
+
+                if (!job)
+                    continue
+
+                if (!job.isRunning)
+                    continue
+                
+                const minutesAlive = timebelt.minutesDifference(new Date(), job.checked)
+                if (minutesAlive > settings.keepAlive){
+                    try {
+                        await killProcess(job.pid)
+                        job.isRunning = false
+                        _log.info(`force killed "${jobId}" process id "${job.pid}, keep alive exceeded ${minutesAlive} minutes"`)
+                    } catch (ex){
+                        _log.error(`Failed to kill timed-out job "${jobId}" process id "${job.pid}", ${ex}`)
+                    }
+                }
+            }
 
     }, settings.registerInterval)
     

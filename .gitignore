@@ -16,3 +16,4 @@ src/client.yml
 /build/node_modules/
 /build/package-lock.json
 src/package-lock.json
+src/logs
