@@ -5,7 +5,7 @@ const process = require('process'),
     Settings = require('./settings');
 
 // load settings files
-(async function(){
+(async ()=>{
     try {
        
         const settings = await Settings({
@@ -53,9 +53,9 @@ const process = require('process'),
             if (pid){
                 console.log(`${settings.protocol}://${workerHost}:${settings.port}/v1/pkill/${pid}`)
                 console.log(`Send remote pkill for "${pid}"`);
-                (function(){
+                (()=>{
                     let exec = require('child_process')
-                    exec.execSync(`curl ${settings.protocol}://${workerHost}:${settings.port}/v1/pkill/${pid}`, function (error, stderr) {
+                    exec.execSync(`curl ${settings.protocol}://${workerHost}:${settings.port}/v1/pkill/${pid}`, (error, stderr)=>{
                         // we don't care about errors
                     })
                 })()

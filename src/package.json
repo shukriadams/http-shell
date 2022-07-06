@@ -21,7 +21,7 @@
         "body-parser": "1.18.3",
         "pidusage": "3.0.0",
         "address": "1.1.2",
-        "timebelt": "https://github.com/shukriadams/timebelt.git#0.1.4",
+        "timebelt": "https://github.com/shukriadams/timebelt.git#0.1.15",
         "winston-wrapper": "https://github.com/shukriadams/winston-wrapper.git#0.1.0",
         "madscience-httputils": "https://github.com/shukriadams/node-httpUtils.git#0.0.3",
         "madscience-node-exec": "https://github.com/shukriadams/node-exec.git#0.0.5"

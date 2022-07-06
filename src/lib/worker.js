@@ -18,7 +18,7 @@ let http = require('http'),
     timebelt = require('timebelt'),
     jobs = {};
 
-(async function(){
+(async()=>{
 
     let settings = await Settings({
         coordinator : null, // example : 127.0.0.1:8082,
@@ -31,6 +31,8 @@ let http = require('http'),
         logDir : './logs',
         logLevel : 'info',
         name : os.hostname,
+        maxmia: 5, // passes of internal check clock before mia processes are treated as killed by OS and abandoned
+        cleanupAbandoned : 10, // minutes after which finished jobs not cleaned up by clients are force deleted,
         tags: '',
         port : 8083
     }, [
@@ -89,7 +91,7 @@ let http = require('http'),
     /**
      * Creates a job
      */    
-    app.post('/v1/jobs', async function(req, res){
+    app.post('/v1/jobs', async (req, res)=>{
         try {
             
             // ensure that client passed in a command to run. All state for the job must therefore be passed in as switches 
@@ -113,8 +115,10 @@ let http = require('http'),
             jobs[id] = {
                 log : [],
                 pid: null,
-                created: new Date,
-                checked: new Date,
+                mia: 0, // nr of ticks job is mia for 
+                created: new Date,  // last time client checked in on job
+                checked: new Date,  // time job was created
+                exited: null,       // time job exited/failed/was abandoned
                 passed : false,
                 code : null,
                 isKilled: false,
@@ -136,15 +140,15 @@ let http = require('http'),
         
                             if (settings.verbose)
                                 for(const item of data)
-                                    _log.info(item)
+                                    _log.info(`${timebelt.toShort(new Date())}: ${item}`)
         
                         }, 
                         onStderr : data =>{
-                            _log.error('ERR', data)
+                            _log.error(`${timebelt.toShort(new Date())}: ERROR: ${data}`)
                         },
                         onStart : args => {
-                            _log.info(`Job ${id} created, pid is ${args.pid}`)
-                            _log.info(`Command : ${req.body.command}`)
+                            _log.info(`${timebelt.toShort(new Date())}: Job ${id} created, pid is ${args.pid}`)
+                            _log.info(`${timebelt.toShort(new Date())}: Command : ${req.body.command}`)
 
                             jobs[id].pid = args.pid
 
@@ -158,23 +162,27 @@ let http = require('http'),
                         },
                         onEnd : result => {
                             jobs[id].isRunning = false
+                            jobs[id].exited = new Date()
                             jobs[id].code = result.code
                             jobs[id].passed = result.code === 0
+
+                            _log.info(`${timebelt.toShort(new Date())}: Job ${id} exited normally with code ${result.code}`)
                         }
                     })
 
                 } catch(ex){
                     if (jobs[id]){
                         jobs[id].isRunning = false
+                        jobs[id].exited = new Date()
                         jobs[id].code = 1
                         jobs[id].log = jobs[id].log.concat(split(JSON.stringify(ex)))
                     }
-                    _log.error(`Error :  ${ex}`)
+                    _log.error(`${timebelt.toShort(new Date())}: Error - ${ex}`)
                 }
             })()
     
         } catch(ex){
-            _log.error(ex)
+            _log.error(`${timebelt.toShort(new Date())}: ${ex}`)
             res.status(500)
             res.json({ error : ex.toString() })
         }
@@ -184,7 +192,7 @@ let http = require('http'),
     /**
      * Kills a job with the given pid
      */
-    app.get('/v1/pkill/:jobid', async function(req, res){
+    app.get('/v1/pkill/:jobid', async (req, res)=>{
         let job = jobs[req.params.jobid]
         
         if (!job){
@@ -192,13 +200,13 @@ let http = require('http'),
             return res.json({error : `Job ${req.params.jobid} not found`})
         }
 
-        _log.info(`Received pkill order for job id "${req.params.jobid}", process id "${job.pid}"`)
+        _log.info(`${timebelt.toShort(new Date())}: Received pkill order for job id "${req.params.jobid}", process id "${job.pid}"`)
         res.end('pkill received, process will be terminated')
 
         try {
             await killProcess(pid)
         } catch(ex) {
-            _log.error(`failed to kill process for job ${req.params.jobid} : ${ex}`)
+            _log.error(`${timebelt.toShort(new Date())}: Failed to kill process for job ${req.params.jobid} : ${ex}`)
         }
     })
     
@@ -206,7 +214,7 @@ let http = require('http'),
     /**
      * Gets status of an existing job.
      */    
-    app.get('/v1/jobs/:id/:index', async function(req, res){
+    app.get('/v1/jobs/:id/:index', async(req, res)=>{
         try {
             let id = req.params.id,
                 job = jobs[id],
@@ -228,7 +236,7 @@ let http = require('http'),
             })
     
         } catch(ex){
-            _log.error(ex)
+            _log.error(`${timebelt.toShort(new Date())}: ${ex}`)
             res.status(500)
             res.json({error : ex.toString()})
         }
@@ -238,7 +246,7 @@ let http = require('http'),
     /**
      * Deletes a completed job - it is up to the client to clean up the jobs it creates.
      */
-    app.delete('/v1/jobs/:id', async function(req, res){
+    app.delete('/v1/jobs/:id', async (req, res)=>{
         try {
             let id = req.params.id,
                 job = jobs[id]
@@ -249,10 +257,10 @@ let http = require('http'),
             }
     
             delete jobs[id]
-            _log.info(`Job ${id} deleted`)
+            _log.info(`${timebelt.toShort(new Date())}: Job ${id} deleted by client`)
             res.json({message : 'Job deleted '})
         } catch(ex){
-            _log.error(ex)
+            _log.error(`${timebelt.toShort(new Date())}: ${ex}`)
             res.status(500)
             res.json({ error : ex.toString() })
         }
@@ -260,7 +268,7 @@ let http = require('http'),
     
 
     // internal maintenace loop
-    setInterval(async function(){
+    setInterval(async()=>{
         
         // keeps this worker registered with coordinator. Coordinator feeds jobs to workers. If running in local mode,
         // a client can feed jobs to a worker directly
@@ -273,16 +281,16 @@ let http = require('http'),
                     throw result.error
     
                 if (!_registered)
-                    _log.info(`Registered with coordinator @ ${settings.coordinator}`)
+                    _log.info(`${timebelt.toShortTime(new Date())}: Registered with coordinator @ ${settings.coordinator}`)
     
                 _registered = true
                 // todo : harden this!
             } catch(ex){
                 if (ex.code === 'ECONNREFUSED')
-                    _log.warn(`${timebelt.toShortTime(new Date())} - coordinator @ ${settings.coordinator} unreachable`)
+                    _log.warn(`${timebelt.toShortTime(new Date())}: Coordinator @ ${settings.coordinator} unreachable`)
                 else {
-                    _log.error('failed to register with coordinator')
-                    _log.error(ex)
+                    _log.error(`${timebelt.toShort(new Date())}: Failed to register with coordinator`)
+                    _log.error(`${timebelt.toShort(new Date())}: ${ex}`)
                 }
             }
         }
@@ -296,17 +304,29 @@ let http = require('http'),
             if (!job)
                 continue
 
-            if (!job.isRunning)
+            // delete jobs that client failed to clean out
+            if (job.exited !== null && timebelt.minutesDifference(new Date(), job.exited) > settings.cleanupAbandoned){
+                delete jobs[jobId]
+                _log.info(`${timebelt.toShort(new Date())}: Job ${jobId} deleted, job was not cleaned out by client.`)
                 continue
-
-            try {
-                 await pidusage(job.pid)
-            }catch(ex){
-                job.isRunning = false
-                job.code = 1
-                job.passed = false
-                _log.error(`Failed to get pid info for job "${jobId}", treating as killed by OS, abandoning job : ${ex}`)
             }
+
+            if (job.isRunning){
+                try {
+                    await pidusage(job.pid)
+               }catch(ex){
+                   job.mia ++
+   
+                   if (job.mia > settings.maxmia){
+                       job.isRunning = false
+                       job.exited = new Date()
+                       job.code = 1
+                       job.passed = false
+                       _log.error(`${timebelt.toShort(new Date())}: Failed to get pid ${job.pid} for job "${jobId}", treating as killed by OS and marking as failed. (internal ex :  ${ex})`)
+                   }
+               }
+            }
+
         }
 
         // cleanup dead jobs that clients have abandoned
@@ -325,9 +345,10 @@ let http = require('http'),
                     try {
                         await killProcess(job.pid)
                         job.isRunning = false
-                        _log.info(`force killed "${jobId}" process id "${job.pid}, keep alive exceeded ${minutesAlive} minutes"`)
+                        job.exited = new Date()
+                        _log.info(`${timebelt.toShort(new Date())}: Force killed "${jobId}" pid "${job.pid}, keep alive exceeded ${minutesAlive} minutes"`)
                     } catch (ex){
-                        _log.error(`Failed to kill timed-out job "${jobId}" process id "${job.pid}", ${ex}`)
+                        _log.error(`${timebelt.toShort(new Date())}: Failed to kill timed-out job "${jobId}" pid "${job.pid}", ${ex}`)
                     }
                 }
             }
