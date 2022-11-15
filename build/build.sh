@@ -48,7 +48,7 @@ elif [ $target = "armv7" ]; then
     # run app and ensure exit code was 0
     (${filename} --version )
 else
-    echo "ERROR : ${target} is not a valid --target, allowed values are [linux64|win64]"
+    echo "ERROR : ${target} is not a valid --target, allowed values are [linux64|win64|armv7]"
     exit 1;
 fi
 
