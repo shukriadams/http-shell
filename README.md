@@ -50,13 +50,17 @@ Do something on a specific worker
 
 ### Directly
 
-    npm install -g pkg@4.4.9
+    cd src
+    sudo npm install -g pkg@5.1.0 -g
+    npm install
 
-    pkg . --targets node10-linux --output ./build/theapp
+then
+
+    pkg . --targets node12-linux --output ./http-shell
 
 or
 
-    pkg . --targets node10-linux-x64 --output ./build/theapp
+    pkg . --targets node12-linux-x64 --output ./http-shell
 
 ### CI server build
 

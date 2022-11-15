@@ -1,3 +1,7 @@
+# Example : 
+#
+#    bash ./build.sh --target linux64
+#
 # borrows generously from https://gist.github.com/stefanbuck/ce788fee19ab6eb0b4447a85fc99f447
 # Note : on linux systems this script must be called with bash, it will not work with sh 
 
@@ -23,7 +27,7 @@ if [ "$target" = "linux64" ]; then
     filename=./linux64/http-shell
     name="http-shell_linux64"
 
-    $(npm bin)/pkg ./../src/. --targets node10-linux-x64 --output $filename
+    $(npm bin)/pkg ./../src/. --targets node12-linux-x64 --output $filename
 
     # run app and ensure exit code was 0
     (${filename} --version )
@@ -31,10 +35,18 @@ elif [ "$target" = "win64" ]; then
     filename=./win64/http-shell.exe
     name="http-shell_win64.exe"
 
-    $(npm bin)/pkg ./../src/. --targets node10-windows-x64 --output $filename
+    $(npm bin)/pkg ./../src/. --targets node12-windows-x64 --output $filename
     
     # run app and ensure exit code was 0
     ($filename --version)
+elif [ $target = "armv7" ]; then
+    filename=./arm7/http-shell
+    name="http-shell_arm7"
+
+    $(npm bin)/pkg ./../src/. --targets node12-linux-armv7 --output $filename
+    
+    # run app and ensure exit code was 0
+    (${filename} --version )
 else
     echo "ERROR : ${target} is not a valid --target, allowed values are [linux64|win64]"
     exit 1;
