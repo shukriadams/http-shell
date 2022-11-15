@@ -17,3 +17,5 @@ src/client.yml
 /build/package-lock.json
 src/package-lock.json
 src/logs
+vagrant/hyperv/.vagrant
+src/http-shell
