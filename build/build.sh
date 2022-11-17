@@ -24,11 +24,8 @@ fi
 # force get tags, these don't always seem to be pulled by jenkins
 git fetch --all --tags
 
-# get current revision the checkout is on
-currentRevision=$(git rev-parse --verify HEAD) 
-
 # get tag on this revision
-tag=$(git describe --contains $currentRevision)
+tag=$(git describe --abbrev=0 --tags)
 
 # ensure current revision is tagged
 if [ -z "$tag" ]; then
@@ -38,7 +35,6 @@ fi
 
 # write version to build
 node writeVersion --version $tag --path ./../src/package.json
-
 
 # Call the node package pkg directly, on build servers it is not installed globally, mainly because on Windows Jenkins agents
 # global npm packages are a pain to set up, and we want to minimize changing the global state of agents.
