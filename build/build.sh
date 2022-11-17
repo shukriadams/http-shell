@@ -42,6 +42,7 @@ if [ "$target" = "linux64" ]; then
     filename=./linux64/http-shell
     name="http-shell_linux64"
 
+    rm -rf $filename
     $(npm bin)/pkg ./../src/. --targets node12-linux-x64 --output $filename
 
     # run app and ensure exit code was 0
@@ -50,6 +51,7 @@ elif [ "$target" = "win64" ]; then
     filename=./win64/http-shell.exe
     name="http-shell_win64.exe"
 
+    rm -rf $filename
     $(npm bin)/pkg ./../src/. --targets node12-windows-x64 --output $filename
     
     # run app and ensure exit code was 0
@@ -58,6 +60,7 @@ elif [ $target = "armv7" ]; then
     filename=./arm7/http-shell
     name="http-shell_arm7"
 
+    rm -rf $filename
     $(npm bin)/pkg ./../src/. --targets node12-linux-armv7 --output $filename
     
     # run app and ensure exit code was 0
