@@ -51,7 +51,7 @@ Do something on a specific worker
 ### Directly
 
     cd src
-    sudo npm install -g pkg@5.1.0 -g
+    sudo npm install -g pkg@4.5.1 -g
     npm install
 
 then
