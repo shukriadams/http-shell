@@ -21,6 +21,25 @@ if [ "$target" = "" ]; then
     exit 1;
 fi
 
+# force get tags, these don't always seem to be pulled by jenkins
+git fetch --all --tags
+
+# get current revision the checkout is on
+currentRevision=$(git rev-parse --verify HEAD) 
+
+# get tag on this revision
+tag=$(git describe --contains $currentRevision)
+
+# ensure current revision is tagged
+if [ -z "$tag" ]; then
+    echo "ERROR : current revision has no tag on it, cannot upload";
+    exit 1;
+fi
+
+# write version to build
+node writeVersion --version $tag --path ./../src/package.json
+
+
 # Call the node package pkg directly, on build servers it is not installed globally, mainly because on Windows Jenkins agents
 # global npm packages are a pain to set up, and we want to minimize changing the global state of agents.
 if [ "$target" = "linux64" ]; then
@@ -52,6 +71,7 @@ else
     exit 1;
 fi
 
+# confirm last command returned error code 0
 if [ ! $? -eq 0 ]; then
     echo "ERROR : App test failed " >&2
     exit 1
@@ -79,20 +99,7 @@ if [ -z "$token" ]; then
     exit 1;
 fi
 
-# force get tags, these don't always seem to be pulled by jenkins
-git fetch --all --tags
 
-# get current revision the checkout is on
-currentRevision=$(git rev-parse --verify HEAD) 
-
-# get tag on this revision
-tag=$(git describe --contains $currentRevision)
-
-# ensure current revision is tagged
-if [ -z "$tag" ]; then
-    echo "ERROR : current revision has no tag on it, cannot upload";
-    exit 1;
-fi
 
 GH_REPO="https://api.github.com/repos/$owner/$repo"
 GH_TAGS="$GH_REPO/releases/tags/$tag"
