@@ -14,14 +14,22 @@ const process = require('process'),
             operationLog : './jobs',
             timeout: 600000, // timeout of http calls. default is 10 minutes. Set to 0 to disable.
             onstart : null,
-            port: 8083, // worker port
             workerPollInterval: 500, // ms
             coordinatorPollInterval: 1000,
             logPageSize: 100,
             protocol: 'http',
-            worker : 'localhost',  // default is localhost
-            coordinator : null, // example : 'localhost:8082',
+            
+            // url of worker to try to connect to
+            worker : 'localhost',  
+
+            // port of worker to try to connect to
+            port: 8083, 
+
+            // example : 'localhost:8082',
+            coordinator : null,
+
             maxAttempts: 10,
+
             jobs : {}
         }, [
             '/etc/cibroker/client.yml',
@@ -37,9 +45,10 @@ const process = require('process'),
             console.log('Client : ERROR - no coordinator or worker url set. Set this in client.yml or with --coordinator or --worker')
             return process.exit(1)
         }
+        const commmand = settings.command || settings.c
 
-        if (!settings.command || !settings.command.length){
-            console.log('Client mode requires command [shell command]. Set this in client.yml or with --command')
+        if (!commmand || !commmand.length){
+            console.log('Client mode requires command [shell command]. Set this in client.yml or with --command or -c')
             return process.exit(1)
         }
 
@@ -140,7 +149,18 @@ const process = require('process'),
             }
 
             console.log(`Attempting to send command to --worker @ host ${workerHost}`)
-            let response = await httputils.postUrlString(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs`, `command=${encodeURIComponent(settings.command)}`)
+            
+            let bodystring = `command=${encodeURIComponent(commmand)}`
+            
+            if (settings.cwd)
+                bodystring = `${bodystring}&cwd=${encodeURIComponent(settings.cwd)}`
+
+            for(let property in settings)
+                if (property.startsWith('ENV_'))
+                    bodystring = `${bodystring}&${property}=${encodeURIComponent(settings[property])}`
+
+            let response = await httputils.postUrlString(`${settings.protocol}://${workerHost}:${settings.port}/v1/jobs`, bodystring)
+
             try {
                 let jobDetails =JSON.parse(response.body)
                 if (jobDetails.error)

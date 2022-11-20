@@ -11,16 +11,22 @@ if (argv.version){
     process.exit(0)
 }
 
-let mode = argv.mode
+if (argv.help|| argv.h){
+    console.log('Usage: http-shell [options...]')
+    console.log(`-m, --mode     [client|worker|coordinator]`)
+    process.exit(0)
+}
+
+let mode = argv.mode || argv.m
 
 // set default mode to client
 if (!mode){
     mode = 'client'
-    console.log('--mode not set, defaulting to client')
+    console.log('--mode (-m) not set, defaulting to client')
 }
 
 if (!allowedModes.includes(mode)){
-    console.log('invalid --mode. Allowed values are [client|worker|coordinator]')
+    console.log(`invalid mode "${mode}" - allowed values are [client|worker|coordinator]`)
     process.exit(1)
 }
 
@@ -36,9 +42,5 @@ switch(mode){
     case 'coordinator':{
         require('./lib/coordinator')
         break
-    }
-    default: {  
-        console.log(`Invalid mode "${mode}" - use [client|worker|coordinator]`)
-        process.exit(1)
     }
 }

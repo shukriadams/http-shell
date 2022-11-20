@@ -7,13 +7,13 @@
     "bin": "index.js",
     "scripts": {
         "start": "node index.js",
-        "debugbrk": "node --inspect-brk=0.0.0.0:8081 index",
+        "break": "node --inspect-brk=0.0.0.0:8081 index",
         "debug": "node --inspect=0.0.0.0:8081 index"
     },
     "dependencies": {
         "fs-extra": "9.0.0",
         "js-yaml": "3.13.1",
-        "minimist": "1.2.5",
+        "minimist": "1.2.7",
         "cuid": "2.1.8",
         "url-join": "4.0.1",
         "jsonfile": "6.0.1",

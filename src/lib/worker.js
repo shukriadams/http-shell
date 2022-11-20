@@ -130,8 +130,8 @@ let http = require('http'),
             // wrap in anon so we can await it but let calling thread continue immediately
             (async ()=>{
                 try {
-                    // run the actual job here
-                    await exec.sh({ cmd : command, 
+                    let shOptions = { 
+                        cmd : command, 
                         onStdout : data => {
                             data = split(data)
     
@@ -148,7 +148,7 @@ let http = require('http'),
                         },
                         onStart : args => {
                             _log.info(`${timebelt.toShort(new Date())}: Job ${id} created, pid is ${args.pid}`)
-                            _log.info(`${timebelt.toShort(new Date())}: Command : ${req.body.command}`)
+                            _log.info(`${timebelt.toShort(new Date())}: request body : ${req.body.command}`)
 
                             jobs[id].pid = args.pid
 
@@ -168,7 +168,25 @@ let http = require('http'),
 
                             _log.info(`${timebelt.toShort(new Date())}: Job ${id} exited normally with code ${result.code}`)
                         }
-                    })
+                    }
+                    
+                    if (req.body.cwd)
+                        shOptions.cwd = req.body.cwd
+
+                    let exp = 'export ',
+                        hasEnv = false
+
+                    for(let property in req.body)
+                    if (property.startsWith('ENV_')){
+                        hasEnv = true
+                        exp += `${property.substr(4)}=${req.body[property]} ` 
+                    }
+                    
+                    if (hasEnv)
+                        shOptions.cmd = `${exp} && ${shOptions.cmd}`
+
+                    // run the actual job here
+                    await exec.sh(shOptions)
 
                 } catch(ex){
                     if (jobs[id]){
@@ -358,12 +376,12 @@ let http = require('http'),
     const server = http.createServer(app)
     server.listen(settings.port)
     console.log(`Worker : listening on port ${settings.port}`)
+
     if (!settings.coordinator)
         console.log(`Worker : coordinator not set, accepting direct client connections`)
-    else{
+    else {
         console.log(`Attached to coordinator @ ${settings.coordinator}`)
         console.log(`Worker : ip is ${address.ip()} - if coordinator has whitelisting enabled, add this to whitelist.`)
     }
 
 })()
-
