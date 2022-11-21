@@ -21,8 +21,8 @@ if [ "$target" = "" ]; then
     exit 1;
 fi
 
-# force get tags, these don't always seem to be pulled by jenkins
-git fetch --all --tags
+# force get tags, these don't always seem to be pulled by jenkins, use -f to force clobber local tags if out of sync
+git fetch --all --tags -f
 
 # get tag on this revision
 tag=$(git describe --abbrev=0 --tags)
