@@ -25,7 +25,7 @@ let http = require('http'),
         registerInterval : 5000,
         maxJobs : 1,
         verbose: false,
-        // if keep alive is greater than zero, unchecked jobs older than this in minutes will be treated
+        // if keep alive is greater than zero, unchecked jobs older than this in seconds will be treated
         // as abandoned and automatically killed
         keepAlive: 0,
         logDir : './logs',
@@ -358,13 +358,13 @@ let http = require('http'),
                 if (!job.isRunning)
                     continue
                 
-                const minutesAlive = timebelt.minutesDifference(new Date(), job.checked)
-                if (minutesAlive > settings.keepAlive){
+                const secondsAlive = timebelt.secondsDifference(new Date(), job.checked)
+                if (secondsAlive > settings.keepAlive){
                     try {
                         await killProcess(job.pid)
                         job.isRunning = false
                         job.exited = new Date()
-                        _log.info(`${timebelt.toShort(new Date())}: Force killed "${jobId}" pid "${job.pid}, keep alive exceeded ${minutesAlive} minutes"`)
+                        _log.info(`${timebelt.toShort(new Date())}: Force killed "${jobId}" pid "${job.pid}, keep alive exceeded ${secondsAlive} seconds"`)
                     } catch (ex){
                         _log.error(`${timebelt.toShort(new Date())}: Failed to kill timed-out job "${jobId}" pid "${job.pid}", ${ex}`)
                     }
