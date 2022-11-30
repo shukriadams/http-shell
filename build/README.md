@@ -30,4 +30,15 @@
     cd build
     call npm install
 
-    sh build.sh --target win64 --upload 1 --owner shukriadams --repo http-shell --token %ACCESS_TOKEN%
+    sh build.sh --target win64 --upload 1 --token %ACCESS_TOKEN%
+
+## Typical Linux CI build setp
+
+    cd src
+    npm install
+
+    cd ..
+    cd build
+    npm install
+
+    sh build.sh --target linux64|armv7 --upload 1 --token $ACCESS_TOKEN
