@@ -21,6 +21,9 @@ if [ "$target" = "" ]; then
     exit 1;
 fi
 
+owner=shukriadams
+repo=http-shell
+
 # force get tags, these don't always seem to be pulled by jenkins, use -f to force clobber local tags if out of sync
 git fetch --all --tags -f
 
