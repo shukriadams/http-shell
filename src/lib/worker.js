@@ -54,9 +54,8 @@ let http = require('http'),
     function split(input){
         input = input.replace(/\r\n/g, '\n')
         input = input.replace(/\r/g, '\n')
-        input = input.replace(/\\n/g, '\n')
         input = input.replace(/\\r/g, '\n')
-        return input.split('\n')
+        return input.split('\n').filter(i => !!i) // split and remove emtpy
     }
 
     /**
@@ -245,7 +244,7 @@ let http = require('http'),
             }
     
             job.checked = new Date()
-
+            
             res.json({
                 passed: job.passed,
                 code : job.code,
