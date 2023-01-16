@@ -1,4 +1,8 @@
-Execute shell commands on remote systems using HTTP. Several workers can be tied to together by a central coordinator that can seamlessly  direct commands to an available worker.
+Execute shell commands asynchronously on a remote system using HTTP.
+
+- All stdout and stderr piped back as http responses.
+- Command stay alive if you disconnect. You can can reconnect periodically to get latest console output and job status
+- Chain several hosts together with one acting as coordinator, the coordinator  can direct commands to hosts that are available to work.
 
 ## Download
 
